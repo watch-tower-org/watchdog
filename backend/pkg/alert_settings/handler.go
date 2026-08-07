@@ -1,4 +1,4 @@
-package settings
+package alert_settings
 
 import (
 	"github.com/gin-gonic/gin"
@@ -23,11 +23,11 @@ func (h *Handler) Get(c *gin.Context) {
 		return
 	}
 
-	res.Ok(c, "settings retrieved successfully", s)
+	res.Ok(c, "alert settings retrieved successfully", s)
 }
 
 func (h *Handler) Update(c *gin.Context) {
-	var req model.UpdateSettingsRequest
+	var req model.UpdateAlertSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		res.BadRequest(c, "Invalid request body")
 		return
@@ -44,5 +44,5 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	res.Ok(c, "settings updated successfully", updated)
+	res.Ok(c, "alert settings updated successfully", updated)
 }

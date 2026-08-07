@@ -1,4 +1,4 @@
-package settings
+package email_settings
 
 import (
 	"github.com/gin-gonic/gin"
@@ -10,9 +10,11 @@ import (
 func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig) {
 	h := NewHandler(controller)
 
-	grp := r.Group("/settings")
+	grp := r.Group("/settings/email")
 	grp.Use(middleware.AuthMiddleware(cfg))
 
 	grp.GET("", h.Get)
 	grp.PUT("", h.Update)
+	grp.GET("/test", h.TestEmail)
+	grp.POST("/test", h.TestEmail)
 }

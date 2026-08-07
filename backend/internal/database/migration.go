@@ -11,14 +11,39 @@ import (
 
 func AutoMigration(db *bun.DB, ctx context.Context) error {
 	db.RegisterModel((*model.Settings)(nil))
+	db.RegisterModel((*model.EmailSettings)(nil))
+	db.RegisterModel((*model.AlertSettings)(nil))
+	db.RegisterModel((*model.ApiKey)(nil))
+	db.RegisterModel((*model.Admin)(nil))
 	db.RegisterModel((*model.RecipientList)(nil))
 	db.RegisterModel((*model.AlertRule)(nil))
 	db.RegisterModel((*model.Issue)(nil))
 	db.RegisterModel((*model.Event)(nil))
 	db.RegisterModel((*model.AlertLog)(nil))
 
+	// Clean up the legacy wide "settings" table (pre-split schema held admin
+	// credentials, SMTP and throttle config all in one row). Detect it by the
+	// admin_username column and drop it so the reduced model is recreated.
+	var hasLegacySettings bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'settings' AND column_name = 'admin_username'
+		)`).Scan(&hasLegacySettings)
+	if err == nil && hasLegacySettings {
+		if _, err := db.ExecContext(ctx, `DROP TABLE IF EXISTS settings CASCADE`); err != nil {
+			logger.Error().Msgf("failed to drop legacy settings table: %v", err)
+			return err
+		}
+		logger.Warn().Msg("Dropped legacy settings table, recreating from models")
+	}
+
 	models := []interface{}{
 		(*model.Settings)(nil),
+		(*model.EmailSettings)(nil),
+		(*model.AlertSettings)(nil),
+		(*model.ApiKey)(nil),
+		(*model.Admin)(nil),
 		(*model.RecipientList)(nil),
 		(*model.AlertRule)(nil),
 		(*model.Issue)(nil),

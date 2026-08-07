@@ -1,6 +1,8 @@
-package settings
+package email_settings
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
@@ -23,11 +25,11 @@ func (h *Handler) Get(c *gin.Context) {
 		return
 	}
 
-	res.Ok(c, "settings retrieved successfully", s)
+	res.Ok(c, "email settings retrieved successfully", s)
 }
 
 func (h *Handler) Update(c *gin.Context) {
-	var req model.UpdateSettingsRequest
+	var req model.UpdateEmailSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		res.BadRequest(c, "Invalid request body")
 		return
@@ -44,5 +46,37 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 
-	res.Ok(c, "settings updated successfully", updated)
+	res.Ok(c, "email settings updated successfully", updated)
+}
+
+func (h *Handler) TestEmail(c *gin.Context) {
+	var req model.TestEmailRequest
+
+	to := c.Query("to")
+	if to != "" {
+		req.To = to
+	}
+
+	if c.Request.Method == http.MethodPost {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			res.BadRequest(c, "Invalid request body")
+			return
+		}
+	} else if to == "" {
+		res.BadRequest(c, "Recipient email address is required")
+		return
+	}
+
+	if err := validator.Validate(&req); err != nil {
+		res.BadRequest(c, validator.ValidationError(err))
+		return
+	}
+
+	err := h.controller.TestSMTP(c.Request.Context(), &req)
+	if err != nil {
+		res.BadRequest(c, err.Error())
+		return
+	}
+
+	res.Ok(c, "test email sent successfully", nil)
 }

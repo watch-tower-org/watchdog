@@ -1,4 +1,4 @@
-package settings
+package alert_settings
 
 import (
 	"context"
@@ -19,8 +19,8 @@ func NewController(db *bun.DB) *Controller {
 	return &Controller{db: db}
 }
 
-func (c *Controller) loadSettings(ctx context.Context) (*model.Settings, error) {
-	var s model.Settings
+func (c *Controller) loadSettings(ctx context.Context) (*model.AlertSettings, error) {
+	var s model.AlertSettings
 	err := c.db.NewSelect().
 		Model(&s).
 		Limit(1).
@@ -28,25 +28,25 @@ func (c *Controller) loadSettings(ctx context.Context) (*model.Settings, error) 
 		Scan(ctx)
 
 	if err != nil {
-		logger.Ctx(ctx).Error().Msgf("Error getting settings: %v", err)
-		return nil, errors.New("Failed to retrieve settings.")
+		logger.Ctx(ctx).Error().Msgf("Error getting alert settings: %v", err)
+		return nil, errors.New("Failed to retrieve alert settings.")
 	}
 
 	return &s, nil
 }
 
-func (c *Controller) Get(ctx context.Context) (*model.Settings, error) {
+func (c *Controller) Get(ctx context.Context) (*model.AlertSettings, error) {
 	return c.loadSettings(ctx)
 }
 
-func (c *Controller) Update(ctx context.Context, req *model.UpdateSettingsRequest) (*model.Settings, error) {
+func (c *Controller) Update(ctx context.Context, req *model.UpdateAlertSettingsRequest) (*model.AlertSettings, error) {
 	s, err := c.loadSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if req.SetupComplete != nil {
-		s.SetupComplete = *req.SetupComplete
+	if req.ThrottleWindow != nil {
+		s.ThrottleWindow = *req.ThrottleWindow
 	}
 
 	s.UpdatedAt = time.Now()
@@ -57,8 +57,8 @@ func (c *Controller) Update(ctx context.Context, req *model.UpdateSettingsReques
 		Exec(ctx)
 
 	if err != nil {
-		logger.Ctx(ctx).Error().Msgf("failed to update settings: %v", err)
-		return nil, errors.New("Failed to update settings.")
+		logger.Ctx(ctx).Error().Msgf("failed to update alert settings: %v", err)
+		return nil, errors.New("Failed to update alert settings.")
 	}
 
 	return s, nil
@@ -68,11 +68,11 @@ func (c *Controller) CreateDefaultSettings() error {
 	ctx := context.Background()
 
 	nb, err := c.db.NewSelect().
-		Model((*model.Settings)(nil)).
+		Model((*model.AlertSettings)(nil)).
 		Count(ctx)
 
 	if err != nil {
-		logger.Ctx(ctx).Error().Msgf("count settings: %v", err)
+		logger.Ctx(ctx).Error().Msgf("count alert settings: %v", err)
 		return err
 	}
 
@@ -80,10 +80,10 @@ func (c *Controller) CreateDefaultSettings() error {
 		return nil
 	}
 
-	defaultSettings := &model.Settings{
-		SetupComplete: false,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+	defaultSettings := &model.AlertSettings{
+		ThrottleWindow: 60,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	_, err = c.db.NewInsert().
@@ -91,7 +91,7 @@ func (c *Controller) CreateDefaultSettings() error {
 		Exec(ctx)
 
 	if err != nil {
-		logger.Ctx(ctx).Error().Msgf("failed to create default settings: %v", err)
+		logger.Ctx(ctx).Error().Msgf("failed to create default alert settings: %v", err)
 		return errors.New("An unexpected error occurred. Please try again.")
 	}
 

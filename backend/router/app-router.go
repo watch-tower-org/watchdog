@@ -6,7 +6,10 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/internal/middleware"
 	"github.com/watch-tower-org/watchdog/backend/internal/res"
 	"github.com/watch-tower-org/watchdog/backend/pkg"
+	"github.com/watch-tower-org/watchdog/backend/pkg/alert_settings"
+	"github.com/watch-tower-org/watchdog/backend/pkg/api_keys"
 	"github.com/watch-tower-org/watchdog/backend/pkg/auth"
+	"github.com/watch-tower-org/watchdog/backend/pkg/email_settings"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
 )
@@ -33,6 +36,9 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 	{
 		auth.Router(v1, app.AuthC, &app.Config.JWT)
 		settings.Router(v1, app.SettingsC, &app.Config.JWT)
+		email_settings.Router(v1, app.EmailSettingsC, &app.Config.JWT)
+		alert_settings.Router(v1, app.AlertSettingsC, &app.Config.JWT)
+		api_keys.Router(v1, app.ApiKeysC, &app.Config.JWT)
 		recipient_lists.Router(v1, app.RecipientListsC, &app.Config.JWT)
 	}
 

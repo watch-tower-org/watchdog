@@ -1,4 +1,4 @@
-package settings
+package api_keys
 
 import (
 	"github.com/gin-gonic/gin"
@@ -10,9 +10,10 @@ import (
 func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig) {
 	h := NewHandler(controller)
 
-	grp := r.Group("/settings")
+	grp := r.Group("/api-keys")
 	grp.Use(middleware.AuthMiddleware(cfg))
 
-	grp.GET("", h.Get)
-	grp.PUT("", h.Update)
+	grp.GET("", h.List)
+	grp.POST("", h.Create)
+	grp.PUT("/:id/revoke", h.Revoke)
 }

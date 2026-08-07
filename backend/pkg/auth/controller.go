@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -38,20 +39,20 @@ func (c *Controller) HashPassword(pwd string) (string, error) {
 	return string(hashedPwd), nil
 }
 
-func (c *Controller) loadSettings(ctx context.Context) (*model.Settings, error) {
-	var s model.Settings
+func (c *Controller) loadAdmin(ctx context.Context, username string) (*model.Admin, error) {
+	var a model.Admin
 	err := c.db.NewSelect().
-		Model(&s).
-		Limit(1).
-		OrderBy("id", bun.OrderAsc).
+		Model(&a).
+		Where("username = ?", username).
+		Where("is_active = ?", true).
 		Scan(ctx)
 
 	if err != nil {
-		logger.Ctx(ctx).Error().Msgf("auth: failed to load settings: %v", err)
-		return nil, errors.New("An unexpected error occurred. Please try again.")
+		logger.Ctx(ctx).Error().Msgf("auth: failed to load admin %q: %v", username, err)
+		return nil, errors.New("Invalid username or password")
 	}
 
-	return &s, nil
+	return &a, nil
 }
 
 func (c *Controller) generateToken(username string, key string, duration time.Duration) (string, error) {
@@ -84,28 +85,20 @@ func (c *Controller) checkPassword(hashedPwd string, requestPwd string) error {
 }
 
 func (c *Controller) Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error) {
-	s, err := c.loadSettings(ctx)
+	a, err := c.loadAdmin(ctx, req.Username)
 	if err != nil {
-		return nil, err
-	}
-
-	if s.AdminUsername == "" || s.AdminPassword == "" {
-		return nil, errors.New("Admin account is not configured.")
-	}
-
-	if s.AdminUsername != req.Username {
 		return nil, ErrInvalidCredentials
 	}
 
-	if err := c.checkPassword(s.AdminPassword, req.Password); err != nil {
+	if err := c.checkPassword(a.Password, req.Password); err != nil {
 		return nil, ErrInvalidCredentials
 	}
 
-	accessToken, err := c.generateToken(s.AdminUsername, c.cfg.SecretKey, c.cfg.ExpirationDuration)
+	accessToken, err := c.generateToken(a.Username, c.cfg.SecretKey, c.cfg.ExpirationDuration)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := c.generateToken(s.AdminUsername, c.cfg.RefreshSecretKey, c.cfg.RefreshExpirationDuration)
+	refreshToken, err := c.generateToken(a.Username, c.cfg.RefreshSecretKey, c.cfg.RefreshExpirationDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -113,10 +106,64 @@ func (c *Controller) Login(ctx context.Context, req *model.LoginRequest) (*model
 	resp := &model.LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		Username:     s.AdminUsername,
+		Username:     a.Username,
 	}
 
 	return resp, nil
+}
+
+// EnsureAdmin creates or updates the admin account from env-provided
+// credentials (upsert by username) so password changes propagate on restart.
+func (c *Controller) EnsureAdmin(username, password string) error {
+	ctx := context.Background()
+
+	hashedPwd, err := c.HashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	var existing model.Admin
+	err = c.db.NewSelect().
+		Model(&existing).
+		Where("username = ?", username).
+		Scan(ctx)
+
+	if err == nil {
+		existing.Password = hashedPwd
+		existing.IsActive = true
+		existing.UpdatedAt = time.Now()
+		_, err = c.db.NewUpdate().
+			Model(&existing).
+			Where("id = ?", existing.ID).
+			Exec(ctx)
+		if err != nil {
+			logger.Ctx(ctx).Error().Msgf("EnsureAdmin: update failed for %q: %v", username, err)
+			return errors.New("An unexpected error occurred. Please try again.")
+		}
+		return nil
+	}
+
+	if !errors.Is(err, sql.ErrNoRows) {
+		logger.Ctx(ctx).Error().Msgf("EnsureAdmin: select failed for %q: %v", username, err)
+		return errors.New("An unexpected error occurred. Please try again.")
+	}
+
+	admin := &model.Admin{
+		Username:    username,
+		Password:    hashedPwd,
+		IsProtected: true,
+		IsActive:    true,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	_, err = c.db.NewInsert().Model(admin).Exec(ctx)
+	if err != nil {
+		logger.Ctx(ctx).Error().Msgf("EnsureAdmin: insert failed for %q: %v", username, err)
+		return errors.New("An unexpected error occurred. Please try again.")
+	}
+
+	return nil
 }
 
 func (c *Controller) RefreshToken(ctx context.Context, username string) (*model.RefreshTokenResponse, error) {
