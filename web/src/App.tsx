@@ -1,0 +1,61 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from '@/components/ui/sonner'
+import { AuthProvider } from '@/lib/auth'
+import { RequireAuth, SetupGate } from '@/lib/guards'
+import { Shell } from '@/components/Shell'
+import { LoginPage } from '@/pages/LoginPage'
+import { SetupPage } from '@/pages/SetupPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { RecipientListsPage } from '@/pages/RecipientListsPage'
+import { ApiKeysPage } from '@/pages/ApiKeysPage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/setup"
+              element={
+                <RequireAuth>
+                  <SetupPage />
+                </RequireAuth>
+              }
+            />
+            <Route
+              element={
+                <RequireAuth>
+                  <SetupGate>
+                    <Shell />
+                  </SetupGate>
+                </RequireAuth>
+              }
+            >
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/recipient-lists" element={<RecipientListsPage />} />
+              <Route path="/api-keys" element={<ApiKeysPage />} />
+            </Route>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+      <Toaster />
+    </QueryClientProvider>
+  )
+}

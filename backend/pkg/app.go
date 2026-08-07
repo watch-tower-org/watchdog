@@ -10,6 +10,7 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/pkg/alert_settings"
 	"github.com/watch-tower-org/watchdog/backend/pkg/api_keys"
 	"github.com/watch-tower-org/watchdog/backend/pkg/auth"
+	"github.com/watch-tower-org/watchdog/backend/pkg/dashboard"
 	"github.com/watch-tower-org/watchdog/backend/pkg/email_settings"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
@@ -24,6 +25,7 @@ type Application struct {
 	ApiKeysC        *api_keys.Controller
 	RecipientListsC *recipient_lists.Controller
 	AuthC           *auth.Controller
+	DashboardC      *dashboard.Controller
 }
 
 func NewApplication(cfg *config.Config, db *database.Database) (*Application, error) {
@@ -47,6 +49,7 @@ func (app *Application) initControllers(db *database.Database) {
 	app.ApiKeysC = api_keys.NewController(db.DB)
 	app.RecipientListsC = recipient_lists.NewController(db.DB)
 	app.AuthC = auth.NewController(db.DB, &app.Config.JWT)
+	app.DashboardC = dashboard.NewController(db.DB)
 }
 
 func (app *Application) initDefaults() error {
