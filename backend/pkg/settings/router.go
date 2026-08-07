@@ -17,5 +17,6 @@ func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig) {
 	grp.GET("/email", h.GetEmailSettings)
 	grp.PUT("/email", h.UpdateEmailSettings)
 	grp.GET("/email/test", h.TestEmailSettings)
+	grp.POST("/email/test", h.TestEmailSettings)
 	grp.PUT("/throttle", h.UpdateThrottle)
 }

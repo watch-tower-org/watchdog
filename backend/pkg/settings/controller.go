@@ -122,25 +122,54 @@ func (c *Controller) UpdateThrottle(ctx context.Context, req *model.UpdateThrott
 	return s, nil
 }
 
-func (c *Controller) TestSMTP(ctx context.Context, to string) error {
-	s, err := c.loadSettings(ctx)
-	if err != nil {
-		return err
-	}
+func (c *Controller) TestSMTP(ctx context.Context, req *model.TestEmailRequest) error {
+	to := req.To
 
-	if s.SMTPHost == "" || s.SMTPFromEmail == "" {
-		return errors.New("SMTP settings are not configured. Please configure them first.")
-	}
-
-	isValidEmail := validator.IsValidEmail(to)
-	if !isValidEmail {
+	if !validator.IsValidEmail(to) {
 		return errors.New("Invalid email address format.")
+	}
+
+	var host, username, password, fromEmail, fromName string
+	var port int
+
+	// If the admin provided SMTP fields in the request, test those
+	// (not-yet-saved) values. Otherwise fall back to the saved settings.
+	if req.SMTPHost != nil || req.SMTPPort != nil || req.SMTPFromEmail != nil {
+		if req.SMTPHost == nil || req.SMTPPort == nil || req.SMTPFromEmail == nil {
+			return errors.New("When testing unsaved SMTP settings, smtp_host, smtp_port and smtp_from_email are all required.")
+		}
+		host = *req.SMTPHost
+		port = *req.SMTPPort
+		if req.SMTPUsername != nil {
+			username = *req.SMTPUsername
+		}
+		if req.SMTPPassword != nil {
+			password = *req.SMTPPassword
+		}
+		fromEmail = *req.SMTPFromEmail
+		if req.SMTPFromName != nil {
+			fromName = *req.SMTPFromName
+		}
+	} else {
+		s, err := c.loadSettings(ctx)
+		if err != nil {
+			return err
+		}
+		if s.SMTPHost == "" || s.SMTPFromEmail == "" {
+			return errors.New("SMTP settings are not configured. Please configure them first.")
+		}
+		host = s.SMTPHost
+		port = s.SMTPPort
+		username = s.SMTPUsername
+		password = s.SMTPPassword
+		fromEmail = s.SMTPFromEmail
+		fromName = s.SMTPFromName
 	}
 
 	subject := "Test Email from WatchTower"
 	body := "This is a test email to verify your SMTP settings."
 
-	if err := mailer.Send(s.SMTPHost, s.SMTPPort, s.SMTPUsername, s.SMTPPassword, s.SMTPFromName, s.SMTPFromEmail, to, subject, body); err != nil {
+	if err := mailer.Send(host, port, username, password, fromName, fromEmail, to, subject, body); err != nil {
 		logger.Ctx(ctx).Error().Msgf("smtp test send to %s failed: %v", to, err)
 		return errors.New("Failed to send test email. Please check the SMTP settings.")
 	}

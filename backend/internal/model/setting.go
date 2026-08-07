@@ -38,3 +38,13 @@ type UpdateEmailSettingsRequest struct {
 type UpdateThrottleRequest struct {
 	ThrottleWindow *int `json:"throttle_window" validate:"required,min=1"`
 }
+
+type TestEmailRequest struct {
+	To            string  `json:"to" validate:"required,email"`
+	SMTPHost      *string `json:"smtp_host"`
+	SMTPPort      *int    `json:"smtp_port"`
+	SMTPUsername  *string `json:"smtp_username"`
+	SMTPPassword  *string `json:"smtp_password"`
+	SMTPFromEmail *string `json:"smtp_from_email"`
+	SMTPFromName  *string `json:"smtp_from_name"`
+}

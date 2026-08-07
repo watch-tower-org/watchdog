@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
@@ -81,13 +83,29 @@ func (h *Handler) UpdateThrottle(c *gin.Context) {
 }
 
 func (h *Handler) TestEmailSettings(c *gin.Context) {
+	var req model.TestEmailRequest
+
 	to := c.Query("to")
-	if to == "" {
+	if to != "" {
+		req.To = to
+	}
+
+	if c.Request.Method == http.MethodPost {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			res.BadRequest(c, "Invalid request body")
+			return
+		}
+	} else if to == "" {
 		res.BadRequest(c, "Recipient email address is required")
 		return
 	}
 
-	err := h.controller.TestSMTP(c.Request.Context(), to)
+	if err := validator.Validate(&req); err != nil {
+		res.BadRequest(c, validator.ValidationError(err))
+		return
+	}
+
+	err := h.controller.TestSMTP(c.Request.Context(), &req)
 	if err != nil {
 		res.BadRequest(c, err.Error())
 		return
