@@ -47,7 +47,9 @@ docker compose up -d            # pulls watchtowerorg/watchdog (or: make docker-
 ```
 
 - Dashboard: http://localhost:8080
-- Default login: `admin` / `superSecret123!` (override with `ADMIN_USERNAME` / `ADMIN_PASSWORD`)
+- Default login: `admin` / `superSecret123!` (set on **first boot only**;
+  the admin password is never overwritten on restart. Force a reset with
+  `ADMIN_RESET_PASSWORD=true` in the root `.env` or shell env.)
 
 ```bash
 docker compose logs -f watchtower   # or: make docker-compose-logs
@@ -65,7 +67,8 @@ image).
 
 Overrides come from a `.env` at the repo root or your shell environment:
 `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
-`JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`.
+`ADMIN_RESET_PASSWORD`, `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`,
+`WATCHTOWER_PORT`.
 
 ## Local Development
 
@@ -111,7 +114,8 @@ backend, or the container env under Docker).
 | `DB_MAX_IDLE_CONNS` | `25` | Max idle connections |
 | `DB_CONN_MAX_LIFETIME` | `5m` | Connection max lifetime |
 | `ADMIN_USERNAME` | `admin` | Default admin user (auto-created on boot) |
-| `ADMIN_PASSWORD` | `admin` | Default admin password |
+| `ADMIN_PASSWORD` | `admin` | Admin password (applied on **first boot** only) |
+| `ADMIN_RESET_PASSWORD` | `false` | Set `true` to force-reset the admin password on next boot |
 | `JWT_SECRET_KEY` | `watchtower-secret-key` | Access-token signing secret |
 | `JWT_EXPIRATION_DURATION` | `24h` | Access-token lifetime |
 | `JWT_REFRESH_SECRET_KEY` | `watchtower-refresh-secret-key` | Refresh-token signing secret |

@@ -34,6 +34,7 @@ services:
       DB_SSL_MODE: disable
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-superSecret123!}
+      ADMIN_RESET_PASSWORD: ${ADMIN_RESET_PASSWORD:-false}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-watchtower-compose-secret-key}
       JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-watchtower-compose-refresh-secret-key}
       RATE_LIMIT_REQUESTS: "100"

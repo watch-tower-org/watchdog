@@ -543,8 +543,10 @@ plain in-memory invalidation on write suffices).
 
 ### Adapted for WatchTower
 - **Auth (§9)**: single admin, **not** multi-user. Credentials come from env
-  vars `ADMIN_USERNAME` / `ADMIN_PASSWORD` (deployment requirement). On boot,
-  ensure the admin exists in the `settings` store; `POST /auth/login` validates
+  vars `ADMIN_USERNAME` / `ADMIN_PASSWORD` (deployment requirement); the
+  password is applied on **first boot only**, `ADMIN_RESET_PASSWORD=true`
+  forces a reset. On boot, ensure the admin exists in the `settings` store;
+  `POST /auth/login` validates
   the password with bcrypt and issues a JWT **access + refresh** pair;
   `AuthMiddleware` guards all backoffice routes. No roles, no RBAC, no user CRUD.
 - **Cache (§14)**: plain in-memory cache + invalidate-on-write. No NATS pub/sub.

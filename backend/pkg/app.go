@@ -88,7 +88,7 @@ func (app *Application) initDefaults() error {
 	if err := app.AlertSettingsC.CreateDefaultSettings(); err != nil {
 		return fmt.Errorf("create default alert settings: %w", err)
 	}
-	if err := app.AuthC.EnsureAdmin(app.Config.Admin.Username, app.Config.Admin.Password); err != nil {
+	if err := app.AuthC.EnsureAdmin(app.Config.Admin.Username, app.Config.Admin.Password, app.Config.Admin.ResetPassword); err != nil {
 		return fmt.Errorf("ensure admin: %w", err)
 	}
 

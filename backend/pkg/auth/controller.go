@@ -112,9 +112,11 @@ func (c *Controller) Login(ctx context.Context, req *model.LoginRequest) (*model
 	return resp, nil
 }
 
-// EnsureAdmin creates or updates the admin account from env-provided
-// credentials (upsert by username) so password changes propagate on restart.
-func (c *Controller) EnsureAdmin(username, password string) error {
+// EnsureAdmin creates the admin account from env-provided credentials on
+// first boot. An existing account is left untouched unless reset is true
+// (opt-in via ADMIN_RESET_PASSWORD), so a default or stale ADMIN_PASSWORD in
+// the environment can never silently clobber the admin password.
+func (c *Controller) EnsureAdmin(username, password string, reset bool) error {
 	ctx := context.Background()
 
 	hashedPwd, err := c.HashPassword(password)
@@ -129,8 +131,10 @@ func (c *Controller) EnsureAdmin(username, password string) error {
 		Scan(ctx)
 
 	if err == nil {
+		if !reset {
+			return nil
+		}
 		existing.Password = hashedPwd
-		existing.IsActive = true
 		existing.UpdatedAt = time.Now()
 		_, err = c.db.NewUpdate().
 			Model(&existing).

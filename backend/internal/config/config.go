@@ -49,6 +49,9 @@ type JWTConfig struct {
 type AdminConfig struct {
 	Username string
 	Password string
+	// ResetPassword forces the admin password to Password on boot (opt-in);
+	// when false, an existing admin account is never touched.
+	ResetPassword bool
 }
 
 type RateLimitConfig struct {
@@ -124,8 +127,9 @@ func LoadConfig() *Config {
 			RefreshExpirationDuration: getEnvDuration("JWT_REFRESH_EXPIRATION_DURATION", 168*time.Hour),
 		},
 		Admin: AdminConfig{
-			Username: getEnv("ADMIN_USERNAME", "admin"),
-			Password: getEnv("ADMIN_PASSWORD", "admin"),
+			Username:      getEnv("ADMIN_USERNAME", "admin"),
+			Password:      getEnv("ADMIN_PASSWORD", "admin"),
+			ResetPassword: getEnv("ADMIN_RESET_PASSWORD", "false") == "true",
 		},
 		RateLimit: RateLimitConfig{
 			Requests: getEnvInt("RATE_LIMIT_REQUESTS", 100),

@@ -237,7 +237,7 @@ full stack, pulling the published image by default:
 
 ```bash
 docker compose up -d             # pulls watchtowerorg/watchdog (or: make docker-compose-up)
-# dashboard: http://localhost:8080  (admin / ADMIN_PASSWORD, default superSecret123!)
+# dashboard: http://localhost:8080  (admin / ADMIN_PASSWORD, default superSecret123!, set on first boot only)
 docker compose logs -f watchtower
 docker compose down              # volumes (DB, logs) are preserved
 ```
@@ -255,7 +255,9 @@ docker compose down              # volumes (DB, logs) are preserved
   configuration is needed; logs persist in the `wt-logs` volume.
 - Overridable via a `.env` at the repo root (or shell env): `DB_USER`,
   `DB_PASSWORD`, `DB_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
-  `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`.
+  `ADMIN_RESET_PASSWORD`, `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`,
+  `WATCHTOWER_PORT`. The admin password is applied on first boot only;
+  set `ADMIN_RESET_PASSWORD=true` to force a reset on the next boot.
 - The backend `go.mod` replaces the SDK with a local path (`../sdk/go`);
   the `Dockerfile` copies `sdk/` into the builder so the replacement
   resolves during the image build.
