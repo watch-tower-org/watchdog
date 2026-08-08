@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, KeyRound, Radar, Settings2, Users } from 'lucide-react'
+import { AlertTriangle, BellRing, KeyRound, Radar, Settings2, Users } from 'lucide-react'
 import { getApi } from '@/lib/api'
 import type { AlertSettings, EmailSettings, Settings } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ interface Summary {
   api_keys: number
   issues: number
   events: number
+  alerts: number
 }
 
 export function DashboardPage() {
@@ -75,6 +76,12 @@ export function DashboardPage() {
       icon: Radar,
       to: '/events',
     },
+    {
+      title: 'Alerts sent',
+      value: summary?.alerts ?? 0,
+      icon: BellRing,
+      to: '/alerts',
+    },
   ]
 
   const emailConfigured =
@@ -91,7 +98,7 @@ export function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {cards.map((card) => (
           <Link key={card.title} to={card.to} className={card.to === '#' ? 'pointer-events-none' : ''}>
             <Card className="transition-colors hover:border-primary/50">

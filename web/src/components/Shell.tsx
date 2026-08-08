@@ -1,12 +1,13 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  Settings as SettingsIcon,
-  Mail,
-  KeyRound,
-  LogOut,
+  BellRing,
   Bug,
+  History,
+  KeyRound,
+  LayoutDashboard,
+  LogOut,
   Radar,
+  Settings as SettingsIcon,
   Users,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
@@ -16,6 +17,8 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/issues', label: 'Issues', icon: Bug },
   { to: '/events', label: 'Events', icon: Radar },
+  { to: '/alert-rules', label: 'Alert Rules', icon: BellRing },
+  { to: '/alerts', label: 'Alerts', icon: History },
   { to: '/recipient-lists', label: 'Recipient Lists', icon: Users },
   { to: '/api-keys', label: 'API Keys', icon: KeyRound },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
@@ -88,7 +91,7 @@ export function Shell() {
             Self-hosted error tracking
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Mail className="h-4 w-4" />
+            <BellRing className="h-4 w-4" />
             Alerts
           </div>
         </header>

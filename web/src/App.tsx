@@ -13,6 +13,8 @@ import { ApiKeysPage } from '@/pages/ApiKeysPage'
 import { IssuesPage } from '@/pages/IssuesPage'
 import { IssueDetailPage } from '@/pages/IssueDetailPage'
 import { EventsPage } from '@/pages/EventsPage'
+import { AlertRulesPage } from '@/pages/AlertRulesPage'
+import { AlertsPage } from '@/pages/AlertsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -55,6 +57,8 @@ export default function App() {
               <Route path="/issues" element={<IssuesPage />} />
               <Route path="/issues/:id" element={<IssueDetailPage />} />
               <Route path="/events" element={<EventsPage />} />
+              <Route path="/alert-rules" element={<AlertRulesPage />} />
+              <Route path="/alerts" element={<AlertsPage />} />
             </Route>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />

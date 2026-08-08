@@ -5,6 +5,8 @@ import (
 
 	"github.com/watch-tower-org/watchdog/backend/internal/middleware"
 	"github.com/watch-tower-org/watchdog/backend/pkg"
+	"github.com/watch-tower-org/watchdog/backend/pkg/alert_log"
+	"github.com/watch-tower-org/watchdog/backend/pkg/alert_rules"
 	"github.com/watch-tower-org/watchdog/backend/pkg/alert_settings"
 	"github.com/watch-tower-org/watchdog/backend/pkg/api_keys"
 	"github.com/watch-tower-org/watchdog/backend/pkg/auth"
@@ -44,6 +46,8 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 		ingestion.Router(v1, app.IngestionC, app.DB)
 		issues.Router(v1, app.IssuesC, &app.Config.JWT)
 		events.Router(v1, app.EventsC, &app.Config.JWT)
+		alert_rules.Router(v1, app.AlertRulesC, &app.Config.JWT)
+		alert_log.Router(v1, app.AlertLogC, &app.Config.JWT)
 	}
 
 	web.Register(router, "/api/watchtower/v1")

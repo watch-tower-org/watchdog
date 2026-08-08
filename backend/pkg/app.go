@@ -9,6 +9,8 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/internal/database"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 	"github.com/watch-tower-org/watchdog/backend/internal/validator"
+	"github.com/watch-tower-org/watchdog/backend/pkg/alert_log"
+	"github.com/watch-tower-org/watchdog/backend/pkg/alert_rules"
 	"github.com/watch-tower-org/watchdog/backend/pkg/alert_settings"
 	"github.com/watch-tower-org/watchdog/backend/pkg/api_keys"
 	"github.com/watch-tower-org/watchdog/backend/pkg/auth"
@@ -17,6 +19,7 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/pkg/events"
 	"github.com/watch-tower-org/watchdog/backend/pkg/ingestion"
 	"github.com/watch-tower-org/watchdog/backend/pkg/issues"
+	"github.com/watch-tower-org/watchdog/backend/pkg/notifier"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
 )
@@ -35,6 +38,9 @@ type Application struct {
 	IngestionC      *ingestion.Controller
 	IssuesC         *issues.Controller
 	EventsC         *events.Controller
+	AlertRulesC     *alert_rules.Controller
+	AlertLogC       *alert_log.Controller
+	Notifier        *notifier.Notifier
 }
 
 func NewApplication(cfg *config.Config, db *database.Database) (*Application, error) {
@@ -48,11 +54,13 @@ func NewApplication(cfg *config.Config, db *database.Database) (*Application, er
 	if err := app.initDefaults(); err != nil {
 		return nil, fmt.Errorf("init defaults: %w", err)
 	}
+	app.Notifier.Start()
 
 	return app, nil
 }
 
 func (app *Application) initControllers(db *database.Database) {
+	app.Notifier = notifier.NewNotifier(db.DB, 0)
 	app.SettingsC = settings.NewController(db.DB)
 	app.EmailSettingsC = email_settings.NewController(db.DB)
 	app.AlertSettingsC = alert_settings.NewController(db.DB)
@@ -60,9 +68,11 @@ func (app *Application) initControllers(db *database.Database) {
 	app.RecipientListsC = recipient_lists.NewController(db.DB)
 	app.AuthC = auth.NewController(db.DB, &app.Config.JWT)
 	app.DashboardC = dashboard.NewController(db.DB)
-	app.IngestionC = ingestion.NewController(db.DB)
+	app.IngestionC = ingestion.NewController(db.DB, app.Notifier)
 	app.IssuesC = issues.NewController(db.DB)
 	app.EventsC = events.NewController(db.DB)
+	app.AlertRulesC = alert_rules.NewController(db.DB)
+	app.AlertLogC = alert_log.NewController(db.DB)
 }
 
 func (app *Application) initDefaults() error {
@@ -84,4 +94,8 @@ func (app *Application) initDefaults() error {
 	return nil
 }
 
-func (app *Application) Shutdown() {}
+func (app *Application) Shutdown() {
+	if app.Notifier != nil {
+		app.Notifier.Shutdown()
+	}
+}

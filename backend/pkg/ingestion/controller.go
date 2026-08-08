@@ -10,18 +10,21 @@ import (
 
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchdog/backend/pkg/notifier"
 )
 
 type Controller struct {
-	db *bun.DB
+	db       *bun.DB
+	notifier *notifier.Notifier
 }
 
-func NewController(db *bun.DB) *Controller {
-	return &Controller{db: db}
+func NewController(db *bun.DB, n *notifier.Notifier) *Controller {
+	return &Controller{db: db, notifier: n}
 }
 
 // Ingest deduplicates a single event into an issue and stores it. Returns the
-// resulting issue/event ids and whether a new issue was created.
+// resulting issue/event ids and whether a new issue was created. After commit
+// the notifier is asked (asynchronously) to evaluate alert rules.
 func (c *Controller) Ingest(ctx context.Context, req *model.IngestEventRequest) (*model.IngestResult, error) {
 	errorType := ExtractErrorType(req.Message, req.StackTrace)
 	fingerprint := ComputeFingerprint(req.Project, errorType, req.StackTrace)
@@ -37,6 +40,11 @@ func (c *Controller) Ingest(ctx context.Context, req *model.IngestEventRequest) 
 		return nil, err
 	}
 	res.Fingerprint = fingerprint
+
+	if c.notifier != nil {
+		c.notifier.NotifyAsync(res.IssueID, res.IsNewIssue, res.WasRegression, req.Project, req.Tag)
+	}
+
 	return res, nil
 }
 
@@ -74,15 +82,17 @@ func (c *Controller) ingestTx(ctx context.Context, req *model.IngestEventRequest
 	}
 
 	return &model.IngestResult{
-		IssueID:    issue.ID,
-		EventID:    event.ID,
-		IsNewIssue: issue.IsNew,
+		IssueID:       issue.ID,
+		EventID:       event.ID,
+		IsNewIssue:    issue.IsNew,
+		WasRegression: issue.WasRegression,
 	}, nil
 }
 
 type issueWithNew struct {
 	model.Issue
-	IsNew bool
+	IsNew         bool
+	WasRegression bool
 }
 
 // findOrCreateIssue looks up the issue by fingerprint. On a hit it bumps count,
@@ -100,8 +110,10 @@ func (c *Controller) findOrCreateIssue(ctx context.Context, tx bun.Tx, req *mode
 	if err == nil {
 		issue.Count++
 		issue.LastSeen = time.Now()
+		wasRegression := false
 		if issue.Status == model.IssueStatusResolved {
 			issue.Status = model.IssueStatusOpen
+			wasRegression = true
 		}
 		issue.UpdatedAt = time.Now()
 
@@ -116,7 +128,7 @@ func (c *Controller) findOrCreateIssue(ctx context.Context, tx bun.Tx, req *mode
 			logger.Ctx(ctx).Error().Msgf("failed to update issue id=%d: %v", issue.ID, err)
 			return nil, errors.New("An unexpected error occurred. Please try again.")
 		}
-		return &issueWithNew{Issue: issue}, nil
+		return &issueWithNew{Issue: issue, WasRegression: wasRegression}, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		logger.Ctx(ctx).Error().Msgf("failed to select issue by fingerprint: %v", err)
@@ -164,8 +176,10 @@ func (c *Controller) findOrCreateIssue(ctx context.Context, tx bun.Tx, req *mode
 
 	existing.Count++
 	existing.LastSeen = time.Now()
+	wasRegression := false
 	if existing.Status == model.IssueStatusResolved {
 		existing.Status = model.IssueStatusOpen
+		wasRegression = true
 	}
 	existing.UpdatedAt = time.Now()
 
@@ -180,7 +194,7 @@ func (c *Controller) findOrCreateIssue(ctx context.Context, tx bun.Tx, req *mode
 		logger.Ctx(ctx).Error().Msgf("failed to update issue id=%d after conflict: %v", existing.ID, err)
 		return nil, errors.New("An unexpected error occurred. Please try again.")
 	}
-	return &issueWithNew{Issue: existing}, nil
+	return &issueWithNew{Issue: existing, WasRegression: wasRegression}, nil
 }
 
 // IngestBatch ingests multiple events, returning per-event results. Each event

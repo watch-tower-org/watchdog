@@ -112,3 +112,31 @@ export interface IssueEvent {
   tag: string
   created_at: string
 }
+
+export type AlertTriggerType = 'new_issue' | 'spike' | 'regression'
+
+export interface AlertRule {
+  id: number
+  name: string
+  trigger_type: AlertTriggerType
+  project: string
+  tag: string
+  threshold: number
+  window_minutes: number
+  throttle_window: number
+  recipient_list_id: number
+  recipient_list: RecipientList | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface AlertLog {
+  id: number
+  issue_id: number
+  rule_id: number
+  sent_at: string
+  recipients: string[]
+  issue: Issue | null
+  rule: AlertRule | null
+}

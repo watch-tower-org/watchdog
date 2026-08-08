@@ -32,10 +32,11 @@ type IngestEventRequest struct {
 }
 
 type IngestResult struct {
-	IssueID     int64  `json:"issue_id"`
-	EventID     int64  `json:"event_id"`
-	IsNewIssue  bool   `json:"is_new_issue"`
-	Fingerprint string `json:"fingerprint"`
+	IssueID       int64  `json:"issue_id"`
+	EventID       int64  `json:"event_id"`
+	IsNewIssue    bool   `json:"is_new_issue"`
+	WasRegression bool   `json:"was_regression"`
+	Fingerprint   string `json:"fingerprint"`
 }
 
 type ListEventsRequest struct {

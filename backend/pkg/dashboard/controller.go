@@ -22,6 +22,7 @@ type Summary struct {
 	ApiKeys        int64 `json:"api_keys"`
 	Issues         int64 `json:"issues"`
 	Events         int64 `json:"events"`
+	Alerts         int64 `json:"alerts"`
 }
 
 func (c *Controller) GetSummary(ctx context.Context) (*Summary, error) {
@@ -35,6 +36,7 @@ func (c *Controller) GetSummary(ctx context.Context) (*Summary, error) {
 		{"api_keys", &summary.ApiKeys},
 		{"issues", &summary.Issues},
 		{"events", &summary.Events},
+		{"alert_log", &summary.Alerts},
 	}
 
 	for _, cnt := range counts {
