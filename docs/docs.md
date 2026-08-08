@@ -275,3 +275,10 @@ go get github.com/watch-tower-org/watchdog/sdk/go@vX.Y.Z
 - Verify a fresh install with `GOPROXY=direct` (bypasses the module-proxy
   cache, which may lag a brand-new module by a few minutes).
 - `sdk/go/example` ships as a runnable example inside the module.
+- Hardening notes: the module declares `go 1.22` for wide toolchain
+  compatibility; `error_type` is derived from the error's Go type unless
+  overridden with `WithErrorType`; `Config.MaxRetries` (default 2) retries
+  failed background batch flushes in the flusher goroutine; a `SampleRate`
+  of `0` drops every event (callers should build configs from
+  `DefaultConfig()`/`ConfigFromEnv()`); re-calling `Init` replaces and
+  flushes the previous client.

@@ -35,7 +35,9 @@ func captureStack() string {
 		}
 		name := fn.Name()
 		if !seenFirst {
-			if strings.HasPrefix(name, sdkPackagePrefix) {
+			// Skip this SDK's own frames as well as runtime bookkeeping
+			// frames (runtime.Callers et al) until the first real caller.
+			if strings.HasPrefix(name, sdkPackagePrefix) || strings.HasPrefix(name, "runtime.") {
 				continue
 			}
 			seenFirst = true

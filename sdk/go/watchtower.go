@@ -51,6 +51,11 @@ type Config struct {
 	MaxQueueSize int
 	// HTTPTimeout bounds each ingestion request.
 	HTTPTimeout time.Duration
+	// MaxRetries is the number of additional attempts after the first when a
+	// background batch flush fails (default 2). Retries happen in the flusher
+	// goroutine, so they never block the caller; ReportSync stays one-shot.
+	// Set to 0 to disable retries.
+	MaxRetries int
 	// HTTPClient overrides the default client (useful for tests).
 	HTTPClient *http.Client
 	// Sender overrides the delivery mechanism. When set, events are handed to
@@ -72,6 +77,7 @@ func DefaultConfig() Config {
 		BatchSize:     100,
 		MaxQueueSize:  5000,
 		HTTPTimeout:   10 * time.Second,
+		MaxRetries:    2,
 	}
 }
 
@@ -128,6 +134,9 @@ func NewClient(cfg Config) (*Client, error) {
 	if cfg.SampleRate > 1 {
 		cfg.SampleRate = 1
 	}
+	if cfg.SampleRate == 0 {
+		cfg.Logger.Printf("watchtower: SampleRate is 0, so every event will be dropped; use DefaultConfig() or ConfigFromEnv() unless this is intentional")
+	}
 	if cfg.BatchInterval <= 0 {
 		cfg.BatchInterval = 5 * time.Second
 	}
@@ -140,6 +149,9 @@ func NewClient(cfg Config) (*Client, error) {
 	if cfg.HTTPTimeout <= 0 {
 		cfg.HTTPTimeout = 10 * time.Second
 	}
+	if cfg.MaxRetries < 0 {
+		cfg.MaxRetries = 0
+	}
 
 	c.sample = cfg.SampleRate
 	c.timeout = cfg.HTTPTimeout
@@ -148,7 +160,7 @@ func NewClient(cfg Config) (*Client, error) {
 	} else {
 		c.sink = newTransport(cfg)
 	}
-	c.batch = newBatch(c.sink, cfg.BatchInterval, cfg.BatchSize, cfg.MaxQueueSize, cfg.HTTPTimeout, cfg.Logger)
+	c.batch = newBatch(c.sink, cfg.BatchInterval, cfg.BatchSize, cfg.MaxQueueSize, cfg.HTTPTimeout, cfg.MaxRetries, retryBackoff, cfg.Logger)
 	return c, nil
 }
 
@@ -192,6 +204,7 @@ func (c *Client) ReportPanic(v any, opts ...ReportOption) {
 	}
 	e := Event{
 		Message:    err.Error(),
+		ErrorType:  typeOf(v),
 		Project:    c.project,
 		Tag:        c.tag,
 		StackTrace: capturePanicStack(),
@@ -218,6 +231,7 @@ func (c *Client) reportable(err error) bool {
 func (c *Client) newEvent(err error, opts ...ReportOption) Event {
 	e := Event{
 		Message:    err.Error(),
+		ErrorType:  typeOf(err),
 		Project:    c.project,
 		Tag:        c.tag,
 		StackTrace: captureStack(),
@@ -227,6 +241,15 @@ func (c *Client) newEvent(err error, opts ...ReportOption) Event {
 	}
 	enrich(&e, c.release)
 	return e
+}
+
+// typeOf returns the Go type name of v ("" for nil). It backs the default
+// error_type field; WithErrorType overrides it per report.
+func typeOf(v any) string {
+	if v == nil {
+		return ""
+	}
+	return fmt.Sprintf("%T", v)
 }
 
 // Flush synchronously delivers any buffered events.
@@ -253,18 +276,21 @@ var (
 	global   *Client
 )
 
-// Init configures the process-wide client. Calling Init more than once is a
-// no-op; use NewClient to manage multiple clients.
+// Init configures the process-wide client. Calling Init again replaces and
+// closes the previous client (flushing any pending events); use NewClient to
+// manage multiple independent clients.
 func Init(cfg Config) error {
 	c, err := NewClient(cfg)
 	if err != nil {
 		return err
 	}
 	globalMu.Lock()
-	if global == nil {
-		global = c
-	}
+	old := global
+	global = c
 	globalMu.Unlock()
+	if old != nil {
+		old.Close()
+	}
 	return nil
 }
 

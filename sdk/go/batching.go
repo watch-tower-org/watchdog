@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// retryBackoff is the fixed delay between retry attempts of a failed batch.
+const retryBackoff = 500 * time.Millisecond
+
 // batch buffers reported events and flushes them to the backend on an interval
 // or once the batch size is reached. Enqueue never blocks: if the buffer is
 // full the event is dropped and logged, so error reporting can never stall the
@@ -20,6 +23,8 @@ type batch struct {
 	maxQueue  int
 	sink      Sender
 	timeout   time.Duration
+	maxRetries   int
+	retryBackoff time.Duration
 	logger    *log.Logger
 
 	sendMu sync.Mutex
@@ -27,17 +32,19 @@ type batch struct {
 	done   chan struct{}
 }
 
-func newBatch(sink Sender, interval time.Duration, batchSize, maxQueue int, timeout time.Duration, logger *log.Logger) *batch {
+func newBatch(sink Sender, interval time.Duration, batchSize, maxQueue int, timeout time.Duration, maxRetries int, retryBackoff time.Duration, logger *log.Logger) *batch {
 	b := &batch{
-		buf:       make([]Event, 0, batchSize),
-		interval:  interval,
-		batchSize: batchSize,
-		maxQueue:  maxQueue,
-		sink:      sink,
-		timeout:   timeout,
-		logger:    logger,
-		stop:      make(chan struct{}),
-		done:      make(chan struct{}),
+		buf:           make([]Event, 0, batchSize),
+		interval:      interval,
+		batchSize:     batchSize,
+		maxQueue:      maxQueue,
+		sink:          sink,
+		timeout:       timeout,
+		maxRetries:    maxRetries,
+		retryBackoff:  retryBackoff,
+		logger:        logger,
+		stop:          make(chan struct{}),
+		done:          make(chan struct{}),
 	}
 	go b.run()
 	return b
@@ -93,7 +100,9 @@ func (b *batch) drain() []Event {
 }
 
 // flush sends the buffered events in one request. Only one send runs at a
-// time; a failed send is logged and dropped (no retry).
+// time. A failed send is retried up to maxRetries additional times with a
+// short backoff (in the flusher goroutine, so callers never block); after that
+// the batch is dropped and logged.
 func (b *batch) flush() {
 	events := b.drain()
 	if len(events) == 0 {
@@ -102,11 +111,23 @@ func (b *batch) flush() {
 	b.sendMu.Lock()
 	defer b.sendMu.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
-	defer cancel()
-	if _, err := b.sink.Send(ctx, events); err != nil {
-		b.logger.Printf("watchtower: failed to send %d event(s): %v", len(events), err)
+	var lastErr error
+	attempts := 0
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
+		_, err := b.sink.Send(ctx, events)
+		cancel()
+		if err == nil {
+			return
+		}
+		lastErr = err
+		attempts++
+		if attempts > b.maxRetries {
+			break
+		}
+		time.Sleep(b.retryBackoff)
 	}
+	b.logger.Printf("watchtower: failed to send %d event(s) after %d attempt(s): %v", len(events), attempts, lastErr)
 }
 
 // Flush synchronously sends any buffered events.

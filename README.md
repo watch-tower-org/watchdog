@@ -207,13 +207,23 @@ Wrap goroutine bodies so panics are reported *and* re-raised (Sentry-style
 Other knobs:
 
 - `wt.DefaultConfig()` returns sane defaults (5s flush interval, batch size
-  100, queue 5000, 10s HTTP timeout).
+  100, queue 5000, 10s HTTP timeout, 2 send retries).
 - `wt.ConfigFromEnv()` builds a config from `WATCHTOWER_*` variables.
 - `WithTimestamp`, `WithErrorType` round out the report options.
+- `Config.MaxRetries` retries a failed background batch flush (never blocks
+  the caller; `ReportSync` stays one-shot).
 - `Config.Sender` overrides delivery: implement `Send(ctx, []Event)` and
   events never touch HTTP (`BaseURL`/`APIKey` become optional). The
   self-reporting backend uses this to post events straight into its local
   ingestion pipeline (see below).
+
+Production notes: **always start from `DefaultConfig()`/`ConfigFromEnv()`** — a
+hand-built `wt.Config{...}` leaves `SampleRate` at `0`, which silently drops
+every event (the SDK warns at `NewClient`). Failed batches are retried then
+dropped (never blocks); a crash between flushes can lose up to one interval, so
+`defer wt.Close()` on graceful shutdown. `error_type` is derived from the
+error's Go type by default. Calling `wt.Init` again replaces and flushes the
+previous client.
 
 A runnable example lives in [`sdk/go/example`](sdk/go/example/main.go).
 
