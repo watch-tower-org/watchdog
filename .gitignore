@@ -5,12 +5,17 @@
 # Go
 backend/main
 backend/logs/
+backend/bin/
 *.log
 
 # Node / frontend
 node_modules/
 web/dist/
 web/.vite/
+
+# Embedded frontend build output (keep the placeholder backend/web/dist/index.html)
+backend/web/dist/*
+!backend/web/dist/index.html
 
 # OS
 .DS_Store
