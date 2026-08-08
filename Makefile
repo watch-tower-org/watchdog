@@ -3,7 +3,7 @@ BACKEND   := backend
 EMBED_DIR := $(BACKEND)/web/dist
 BIN       := bin/watchtower
 
-.PHONY: all dev dev-web build docker clean
+.PHONY: all dev dev-all dev-web build docker clean
 
 all: build
 
@@ -18,6 +18,14 @@ dev:
 # Run `make dev` in a second terminal to serve the API.
 dev-web:
 	npm --prefix $(WEB_DIR) run dev
+
+# Run the backend API (:8080) and the Vite dev server (:5173) together.
+# Stop both at once with Ctrl+C.
+dev-all:
+	@trap 'kill 0' INT TERM EXIT; \
+	(cd $(BACKEND) && go run .) & \
+	npm --prefix $(WEB_DIR) run dev; \
+	wait
 
 # Build a production single binary with the frontend embedded.
 build:
