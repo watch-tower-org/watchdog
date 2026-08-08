@@ -152,6 +152,12 @@ Set `SELF_REPORT_ENABLED=false` to turn it off.
 
 ## Go SDK
 
+A published, zero-dependency Go module. Install it with:
+
+```bash
+go get github.com/watch-tower-org/watchdog/sdk/go@latest
+```
+
 Import the module and initialize a process-wide client:
 
 ```go
@@ -270,6 +276,19 @@ web/        React + Vite dashboard
 docker/     Multi-stage Dockerfile (web -> go -> scratch)
 docs/       docs.md (full spec), kuwait-university-reference.md
 ```
+
+## Releasing the SDK
+
+The SDK is a nested Go module (`github.com/watch-tower-org/watchdog/sdk/go`).
+Release a new version with a submodule tag:
+
+```bash
+git tag sdk/go/v0.1.1          # tag shape matters: <module dir>/v<version>
+git push origin sdk/go/v0.1.1  # consumers then: go get .../sdk/go@v0.1.1
+```
+
+The backend depends on the SDK via `replace ../sdk/go` for local development, so
+backend and SDK always build together regardless of the last published tag.
 
 ## Testing
 

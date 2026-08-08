@@ -14,7 +14,7 @@ require (
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18
 	github.com/uptrace/bun/driver/pgdriver v1.2.18
-	github.com/watch-tower-org/watchdog/sdk/go v0.0.0-00010101000000-000000000000
+	github.com/watch-tower-org/watchdog/sdk/go v0.1.0
 	golang.org/x/crypto v0.54.0
 	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

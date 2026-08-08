@@ -250,3 +250,28 @@ docker compose down              # volumes (DB, logs) are preserved
 - The backend `go.mod` replaces the SDK with a local path (`../sdk/go`);
   the `Dockerfile` copies `sdk/` into the builder so the replacement
   resolves during the image build.
+
+---
+
+## 11. SDK Release Process
+
+The SDK is a nested Go module (`github.com/watch-tower-org/watchdog/sdk/go`,
+stdlib-only, no `go.sum`). It is published with **submodule version tags**:
+the tag must be `<module dir>/v<version>`, i.e. `sdk/go/v0.1.0`, so Go can
+locate the module boundary inside the monorepo.
+
+```bash
+# after committing the SDK changes
+git tag sdk/go/vX.Y.Z
+git push origin sdk/go/vX.Y.Z
+
+# consumers install it with
+go get github.com/watch-tower-org/watchdog/sdk/go@vX.Y.Z
+```
+
+- The backend pins the SDK with `replace ../sdk/go` (local path), so
+  development never waits on a tag; the `require` line mirrors the last
+  published version for readability.
+- Verify a fresh install with `GOPROXY=direct` (bypasses the module-proxy
+  cache, which may lag a brand-new module by a few minutes).
+- `sdk/go/example` ships as a runnable example inside the module.
