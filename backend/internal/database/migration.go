@@ -73,6 +73,12 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		return err
 	}
 
+	// Add the message column to events if it doesn't exist yet (older installs).
+	if _, err := db.ExecContext(ctx, `ALTER TABLE events ADD COLUMN IF NOT EXISTS message text`); err != nil {
+		logger.Error().Msgf("failed to add message column to events: %v", err)
+		return err
+	}
+
 	logger.Info().Msgf("Database tables created successfully")
 
 	return nil

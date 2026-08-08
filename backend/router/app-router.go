@@ -10,6 +10,9 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/pkg/auth"
 	"github.com/watch-tower-org/watchdog/backend/pkg/dashboard"
 	"github.com/watch-tower-org/watchdog/backend/pkg/email_settings"
+	"github.com/watch-tower-org/watchdog/backend/pkg/events"
+	"github.com/watch-tower-org/watchdog/backend/pkg/ingestion"
+	"github.com/watch-tower-org/watchdog/backend/pkg/issues"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
 	"github.com/watch-tower-org/watchdog/backend/web"
@@ -38,6 +41,9 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 		api_keys.Router(v1, app.ApiKeysC, &app.Config.JWT)
 		recipient_lists.Router(v1, app.RecipientListsC, &app.Config.JWT)
 		dashboard.Router(v1, app.DashboardC, &app.Config.JWT)
+		ingestion.Router(v1, app.IngestionC, app.DB)
+		issues.Router(v1, app.IssuesC, &app.Config.JWT)
+		events.Router(v1, app.EventsC, &app.Config.JWT)
 	}
 
 	web.Register(router, "/api/watchtower/v1")

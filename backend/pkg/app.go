@@ -3,6 +3,8 @@ package pkg
 import (
 	"fmt"
 
+	"github.com/uptrace/bun"
+
 	"github.com/watch-tower-org/watchdog/backend/internal/config"
 	"github.com/watch-tower-org/watchdog/backend/internal/database"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
@@ -12,12 +14,16 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/pkg/auth"
 	"github.com/watch-tower-org/watchdog/backend/pkg/dashboard"
 	"github.com/watch-tower-org/watchdog/backend/pkg/email_settings"
+	"github.com/watch-tower-org/watchdog/backend/pkg/events"
+	"github.com/watch-tower-org/watchdog/backend/pkg/ingestion"
+	"github.com/watch-tower-org/watchdog/backend/pkg/issues"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
 )
 
 type Application struct {
 	Config *config.Config
+	DB     *bun.DB
 
 	SettingsC       *settings.Controller
 	EmailSettingsC  *email_settings.Controller
@@ -26,11 +32,15 @@ type Application struct {
 	RecipientListsC *recipient_lists.Controller
 	AuthC           *auth.Controller
 	DashboardC      *dashboard.Controller
+	IngestionC      *ingestion.Controller
+	IssuesC         *issues.Controller
+	EventsC         *events.Controller
 }
 
 func NewApplication(cfg *config.Config, db *database.Database) (*Application, error) {
 	app := &Application{
 		Config: cfg,
+		DB:     db.DB,
 	}
 
 	validator.Init()
@@ -50,6 +60,9 @@ func (app *Application) initControllers(db *database.Database) {
 	app.RecipientListsC = recipient_lists.NewController(db.DB)
 	app.AuthC = auth.NewController(db.DB, &app.Config.JWT)
 	app.DashboardC = dashboard.NewController(db.DB)
+	app.IngestionC = ingestion.NewController(db.DB)
+	app.IssuesC = issues.NewController(db.DB)
+	app.EventsC = events.NewController(db.DB)
 }
 
 func (app *Application) initDefaults() error {
