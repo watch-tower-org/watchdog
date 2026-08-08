@@ -22,8 +22,9 @@ type Client struct {
 	release  string
 	sample   float64
 	disabled bool
+	timeout  time.Duration
 
-	tr    *transport
+	sink  Sender
 	batch *batch
 	log   *log.Logger
 }
@@ -52,6 +53,11 @@ type Config struct {
 	HTTPTimeout time.Duration
 	// HTTPClient overrides the default client (useful for tests).
 	HTTPClient *http.Client
+	// Sender overrides the delivery mechanism. When set, events are handed to
+	// it instead of being posted over HTTP to BaseURL, so BaseURL and APIKey
+	// are not required. Use it for in-process sinks (see the self-reporting
+	// backend) or custom transports.
+	Sender Sender
 	// Logger receives SDK diagnostics; defaults to stderr.
 	Logger *log.Logger
 	// Disable turns the SDK into a no-op (local development).
@@ -104,11 +110,13 @@ func NewClient(cfg Config) (*Client, error) {
 		return c, nil
 	}
 
-	if strings.TrimSpace(cfg.BaseURL) == "" {
-		return nil, errors.New("watchtower: BaseURL is required")
-	}
-	if strings.TrimSpace(cfg.APIKey) == "" {
-		return nil, errors.New("watchtower: APIKey is required")
+	if cfg.Sender == nil {
+		if strings.TrimSpace(cfg.BaseURL) == "" {
+			return nil, errors.New("watchtower: BaseURL is required (or provide a Sender)")
+		}
+		if strings.TrimSpace(cfg.APIKey) == "" {
+			return nil, errors.New("watchtower: APIKey is required (or provide a Sender)")
+		}
 	}
 	if strings.TrimSpace(cfg.Project) == "" {
 		return nil, errors.New("watchtower: Project is required")
@@ -134,8 +142,13 @@ func NewClient(cfg Config) (*Client, error) {
 	}
 
 	c.sample = cfg.SampleRate
-	c.tr = newTransport(cfg)
-	c.batch = newBatch(c.tr, cfg.BatchInterval, cfg.BatchSize, cfg.MaxQueueSize, cfg.Logger)
+	c.timeout = cfg.HTTPTimeout
+	if cfg.Sender != nil {
+		c.sink = cfg.Sender
+	} else {
+		c.sink = newTransport(cfg)
+	}
+	c.batch = newBatch(c.sink, cfg.BatchInterval, cfg.BatchSize, cfg.MaxQueueSize, cfg.HTTPTimeout, cfg.Logger)
 	return c, nil
 }
 
@@ -158,9 +171,9 @@ func (c *Client) ReportSync(err error, opts ...ReportOption) ([]Result, error) {
 		return nil, nil
 	}
 	e := c.newEvent(err, opts...)
-	ctx, cancel := context.WithTimeout(context.Background(), c.tr.client.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
-	return c.tr.send(ctx, []event{e})
+	return c.sink.Send(ctx, []Event{e})
 }
 
 // ReportPanic reports a recovered panic value, using the panic stack captured
@@ -177,7 +190,7 @@ func (c *Client) ReportPanic(v any, opts ...ReportOption) {
 	if !ok {
 		err = fmt.Errorf("%v", v)
 	}
-	e := event{
+	e := Event{
 		Message:    err.Error(),
 		Project:    c.project,
 		Tag:        c.tag,
@@ -202,8 +215,8 @@ func (c *Client) reportable(err error) bool {
 }
 
 // newEvent builds an event from err, applies options, then enrichment.
-func (c *Client) newEvent(err error, opts ...ReportOption) event {
-	e := event{
+func (c *Client) newEvent(err error, opts ...ReportOption) Event {
+	e := Event{
 		Message:    err.Error(),
 		Project:    c.project,
 		Tag:        c.tag,
@@ -295,16 +308,16 @@ func Close() {
 // ---------------------------------------------------------------------------
 
 // ReportOption mutates a reported event.
-type ReportOption func(*event)
+type ReportOption func(*Event)
 
 // WithTag sets the tag for a single report.
 func WithTag(tag string) ReportOption {
-	return func(e *event) { e.Tag = tag }
+	return func(e *Event) { e.Tag = tag }
 }
 
 // WithContext merges key/value context into a single report.
 func WithContext(ctx map[string]any) ReportOption {
-	return func(e *event) {
+	return func(e *Event) {
 		if len(ctx) == 0 {
 			return
 		}
@@ -319,10 +332,10 @@ func WithContext(ctx map[string]any) ReportOption {
 
 // WithTimestamp overrides the event timestamp.
 func WithTimestamp(ts time.Time) ReportOption {
-	return func(e *event) { e.Timestamp = &ts }
+	return func(e *Event) { e.Timestamp = &ts }
 }
 
 // WithErrorType overrides the derived error type.
 func WithErrorType(t string) ReportOption {
-	return func(e *event) { e.ErrorType = t }
+	return func(e *Event) { e.ErrorType = t }
 }

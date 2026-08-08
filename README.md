@@ -55,13 +55,11 @@ docker compose down                 # or: make docker-compose-down   (volumes pr
 ```
 
 The `postgres` service stays internal to the Compose network; the backend
-waits for its healthcheck. Logs and the self-reporting key persist in the
-`wt-logs` volume.
+waits for its healthcheck. Logs persist in the `wt-logs` volume.
 
 Overrides come from a `.env` at the repo root or your shell environment:
 `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
-`JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`,
-`SELF_REPORT_API_KEY`.
+`JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`.
 
 ## Local Development
 
@@ -132,12 +130,14 @@ backend, or the container env under Docker).
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SELF_REPORT_ENABLED` | `true` | Report the backend's own errors to itself |
-| `SELF_REPORT_BASE_URL` | `http://localhost:8080` | Where the SDK posts (self) |
-| `SELF_REPORT_API_KEY` | *(auto-provisioned)* | Override for a pre-created key |
 | `SELF_REPORT_PROJECT` | `watchtower-self` | Project label for self-reports |
 | `SELF_REPORT_RELEASE` | *(empty)* | Version/commit attached to self-reports |
 | `SELF_REPORT_LEVEL` | `fatal` | Minimum forwarded log level (`error`, `fatal`, ...) |
-| `SELF_REPORT_KEY_FILE` | `<LOGGER_LOG_DIR>/self-report.key` | Where the auto-provisioned key is stored |
+
+Self-reports are delivered **in-process** — no API key or endpoint is required.
+The SDK client is given a `Sender` that hands events straight to the local
+ingestion controller, so the full dedup/regression/alert pipeline still runs.
+Set `SELF_REPORT_ENABLED=false` to turn it off.
 
 ### Go SDK (`ConfigFromEnv`)
 
@@ -204,15 +204,20 @@ Other knobs:
   100, queue 5000, 10s HTTP timeout).
 - `wt.ConfigFromEnv()` builds a config from `WATCHTOWER_*` variables.
 - `WithTimestamp`, `WithErrorType` round out the report options.
+- `Config.Sender` overrides delivery: implement `Send(ctx, []Event)` and
+  events never touch HTTP (`BaseURL`/`APIKey` become optional). The
+  self-reporting backend uses this to post events straight into its local
+  ingestion pipeline (see below).
 
 A runnable example lives in [`sdk/go/example`](sdk/go/example/main.go).
 
 ## Self-reporting (dogfooding)
 
-The backend uses the very SDK it ships: on first boot it auto-provisions a
-`watchtower-self` project + API key (plaintext persisted to
-`<LOGGER_LOG_DIR>/self-report.key`, reused on restart), then reports its own
-errors back into itself through the normal HTTP/auth/dedup pipeline.
+The backend uses the very SDK it ships, but with zero setup: no API key, no
+`.env` editing. The `wt.Client` is configured with a custom `Sender` that
+hands captured events directly to the local ingestion controller, so
+self-reports flow through the same fingerprint/dedup/regression/alerting
+pipeline as any SDK event — they land under the `watchtower-self` project.
 
 Sources of self-reports:
 
@@ -222,9 +227,11 @@ Sources of self-reports:
   quiet; `error` also forwards 5xx request logs and other logged errors.
   Fatal/Panic logs are reported synchronously before the process exits.
 
-If Postgres itself is down, self-reports can't persist — the SDK drops them
-and logs the failed send to stderr while the regular stdout/file log output
+If Postgres itself is down, self-reports can't persist — the sink drops them
+and logs a single failed-ingest line while the regular stdout/file log output
 keeps working, so visibility is never lost exactly when things break hardest.
+A reentrancy guard stops the failure from re-triggering self-reports in a
+loop.
 
 ## API Overview
 

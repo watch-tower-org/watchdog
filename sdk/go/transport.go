@@ -31,7 +31,15 @@ type ingestResponse struct {
 	} `json:"data"`
 }
 
-// transport posts batches of events to the backend over HTTP.
+// Sender delivers a batch of captured events. The default implementation posts
+// them to a WatchTower instance over HTTP; applications can supply a custom
+// Sender (e.g. an in-process sink) via Config.Sender to avoid the HTTP/API-key
+// path entirely.
+type Sender interface {
+	Send(ctx context.Context, events []Event) ([]Result, error)
+}
+
+// transport is the default HTTP Sender.
 type transport struct {
 	baseURL string
 	apiKey  string
@@ -50,9 +58,9 @@ func newTransport(cfg Config) *transport {
 	}
 }
 
-// send posts a batch of events. On failure (network error, non-2xx) it returns
+// Send posts a batch of events. On failure (network error, non-2xx) it returns
 // an error; the caller decides whether to drop or retry.
-func (t *transport) send(ctx context.Context, events []event) ([]Result, error) {
+func (t *transport) Send(ctx context.Context, events []Event) ([]Result, error) {
 	if len(events) == 0 {
 		return nil, nil
 	}

@@ -13,12 +13,13 @@ import (
 // host application (a core design goal of the SDK).
 type batch struct {
 	mu        sync.Mutex
-	buf       []event
+	buf       []Event
 	closed    bool
 	interval  time.Duration
 	batchSize int
 	maxQueue  int
-	tr        *transport
+	sink      Sender
+	timeout   time.Duration
 	logger    *log.Logger
 
 	sendMu sync.Mutex
@@ -26,13 +27,14 @@ type batch struct {
 	done   chan struct{}
 }
 
-func newBatch(tr *transport, interval time.Duration, batchSize, maxQueue int, logger *log.Logger) *batch {
+func newBatch(sink Sender, interval time.Duration, batchSize, maxQueue int, timeout time.Duration, logger *log.Logger) *batch {
 	b := &batch{
-		buf:       make([]event, 0, batchSize),
+		buf:       make([]Event, 0, batchSize),
 		interval:  interval,
 		batchSize: batchSize,
 		maxQueue:  maxQueue,
-		tr:        tr,
+		sink:      sink,
+		timeout:   timeout,
 		logger:    logger,
 		stop:      make(chan struct{}),
 		done:      make(chan struct{}),
@@ -58,7 +60,7 @@ func (b *batch) run() {
 
 // enqueue buffers an event. It returns false when the batch is closed or the
 // queue is full (in which case the event is dropped).
-func (b *batch) enqueue(e event) bool {
+func (b *batch) enqueue(e Event) bool {
 	b.mu.Lock()
 	if b.closed {
 		b.mu.Unlock()
@@ -79,7 +81,7 @@ func (b *batch) enqueue(e event) bool {
 }
 
 // drain takes ownership of the buffered events.
-func (b *batch) drain() []event {
+func (b *batch) drain() []Event {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if len(b.buf) == 0 {
@@ -90,7 +92,7 @@ func (b *batch) drain() []event {
 	return events
 }
 
-// flush sends the buffered events in one request. Only one HTTP send runs at a
+// flush sends the buffered events in one request. Only one send runs at a
 // time; a failed send is logged and dropped (no retry).
 func (b *batch) flush() {
 	events := b.drain()
@@ -100,9 +102,9 @@ func (b *batch) flush() {
 	b.sendMu.Lock()
 	defer b.sendMu.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), b.tr.client.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), b.timeout)
 	defer cancel()
-	if _, err := b.tr.send(ctx, events); err != nil {
+	if _, err := b.sink.Send(ctx, events); err != nil {
 		b.logger.Printf("watchtower: failed to send %d event(s): %v", len(events), err)
 	}
 }

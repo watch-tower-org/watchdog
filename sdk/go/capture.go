@@ -87,7 +87,7 @@ func trimPanicStack(raw string) string {
 
 // enrich pushes automatically-collected fields (hostname, release) into the
 // event context, without clobbering user-supplied keys.
-func enrich(e *event, release string) {
+func enrich(e *Event, release string) {
 	if e.Context == nil {
 		e.Context = map[string]any{}
 	}

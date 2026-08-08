@@ -102,8 +102,7 @@ func (app *Application) initDefaults() error {
 func (app *Application) initSelfReport() {
 	sr, err := selfreport.New(
 		app.Config.SelfReport,
-		app.Config.LoggerConfig.LogDir,
-		app.ApiKeysC,
+		app.IngestionC,
 	)
 	if err != nil {
 		logger.Warn().Err(err).Msg("self-reporting disabled")

@@ -1,20 +1,25 @@
 // Package selfreport implements WatchTower dogfooding: the backend reports its
-// own errors back into itself through the same SDK/ingestion pipeline it
-// exposes to other services.
+// own errors back into itself through the same ingestion/dedup/alert pipeline
+// it exposes to other services.
 //
-// If the backend's own error is caused by Postgres being unavailable, an
-// HTTP self-report cannot be persisted. In that case the SDK drops the event
-// and logs to stderr, and the existing zerolog file/stdout output still works,
-// so visibility is never lost while things break hardest.
+// Unlike external SDKs, self-reports are delivered in-process: the SDK client
+// is given a Sender that calls the ingestion controller directly, so no API
+// key, HTTP round-trip, or configuration is required. This keeps the SDK as
+// the capture/batching layer (panic-stack trimming, context enrichment) while
+// the full fingerprinting, dedup, regression and alerting logic still runs.
+//
+// If the backend's own error is caused by Postgres being unavailable, the
+// in-process ingest fails and is logged; a reentrancy guard prevents the
+// failure from re-triggering self-reports in a loop. The regular stdout/file
+// log output keeps working, so visibility is never lost exactly when things
+// break hardest.
 package selfreport
 
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
+	"sync/atomic"
 
 	"github.com/rs/zerolog"
 	wt "github.com/watch-tower-org/watchdog/sdk/go"
@@ -24,99 +29,91 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
 )
 
-// keyFileName is the default file holding the plaintext self-reporting API key.
-const keyFileName = "self-report.key"
+// ingester is the subset of the ingestion controller used to store
+// self-reports. It lets tests substitute a stub.
+type ingester interface {
+	IngestBatch(ctx context.Context, reqs []*model.IngestEventRequest) ([]*model.IngestResult, error)
+}
 
-// apiKeyCreator is the subset of the api_keys controller used to provision the
-// self-reporting key.
-type apiKeyCreator interface {
-	Create(ctx context.Context, req *model.CreateApiKeyRequest) (*model.CreateApiKeyResponse, error)
+// sink delivers captured events to the in-process ingestion controller.
+type sink struct {
+	ingest ingester
+	// inSelf is set while the ingestion controller is running so the log hook
+	// can suppress re-reporting of failures produced by the ingest itself.
+	inSelf atomic.Bool
+}
+
+func (s *sink) Send(ctx context.Context, events []wt.Event) ([]wt.Result, error) {
+	if len(events) == 0 {
+		return nil, nil
+	}
+	reqs := make([]*model.IngestEventRequest, 0, len(events))
+	for i := range events {
+		e := &events[i]
+		reqs = append(reqs, &model.IngestEventRequest{
+			Message:    e.Message,
+			ErrorType:  e.ErrorType,
+			StackTrace: e.StackTrace,
+			Project:    e.Project,
+			Tag:        e.Tag,
+			Context:    e.Context,
+			Timestamp:  e.Timestamp,
+		})
+	}
+
+	s.inSelf.Store(true)
+	defer s.inSelf.Store(false)
+
+	results, err := s.ingest.IngestBatch(ctx, reqs)
+	if err != nil {
+		logger.Ctx(ctx).Error().Msgf("self-report: ingest failed: %v", err)
+		return nil, err
+	}
+
+	out := make([]wt.Result, 0, len(results))
+	for _, r := range results {
+		out = append(out, wt.Result{
+			IssueID:       r.IssueID,
+			EventID:       r.EventID,
+			IsNewIssue:    r.IsNewIssue,
+			WasRegression: r.WasRegression,
+			Fingerprint:   r.Fingerprint,
+		})
+	}
+	return out, nil
 }
 
 // Reporter reports the backend's own errors to itself. A nil *Reporter (or a
 // nil client) is a safe no-op.
 type Reporter struct {
 	client *wt.Client
+	sink   *sink
 }
 
-// New builds a Reporter from cfg. With self-reporting disabled it returns
-// (nil, nil). Any provisioning or client setup failure returns an error so the
-// caller can log it and continue without self-reporting.
-func New(cfg config.SelfReportConfig, logDir string, keys apiKeyCreator) (*Reporter, error) {
+// New builds a Reporter. With self-reporting disabled it returns (nil, nil).
+// Any client setup failure returns an error so the caller can log it and
+// continue without self-reporting.
+func New(cfg config.SelfReportConfig, ingest ingester) (*Reporter, error) {
 	if !cfg.Enabled {
 		return nil, nil
 	}
 
-	keyFile := cfg.KeyFile
-	if keyFile == "" {
-		keyFile = filepath.Join(logDir, keyFileName)
-	}
-
-	key, fromFile, err := resolveKey(cfg.APIKey, keyFile, os.ReadFile, func() (string, error) {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		res, err := keys.Create(ctx, &model.CreateApiKeyRequest{
-			Name:    cfg.Project,
-			Project: cfg.Project,
-		})
-		if err != nil {
-			return "", err
-		}
-		return res.Key, nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("self-report: provision api key: %w", err)
-	}
-	if !fromFile && cfg.APIKey == "" {
-		if err := writeKeyFile(keyFile, key); err != nil {
-			logger.Warn().Err(err).Msg("self-report: could not persist api key; a new one will be created next boot")
-		}
-	}
-
+	s := &sink{ingest: ingest}
 	wcfg := wt.DefaultConfig()
-	wcfg.BaseURL = cfg.BaseURL
-	wcfg.APIKey = key
 	wcfg.Project = cfg.Project
 	wcfg.Release = cfg.Release
 	wcfg.Tag = "self"
+	wcfg.Sender = s
 
 	client, err := wt.NewClient(wcfg)
 	if err != nil {
 		return nil, fmt.Errorf("self-report: init sdk client: %w", err)
 	}
 
-	r := &Reporter{client: client}
+	r := &Reporter{client: client, sink: s}
 	r.installLogHook(cfg.Level)
-	logger.Info().Msgf("self-reporting enabled: project=%s base=%s", cfg.Project, cfg.BaseURL)
+	logger.Info().Msgf("self-reporting enabled: project=%s", cfg.Project)
 	return r, nil
-}
-
-// resolveKey returns the self-reporting API key: an explicit override wins,
-// then a previously persisted key file, then a freshly provisioned key.
-// fromFile reports whether the returned key came from the key file.
-func resolveKey(cfgKey, keyFile string, readFile func(string) ([]byte, error), provision func() (string, error)) (key string, fromFile bool, err error) {
-	if strings.TrimSpace(cfgKey) != "" {
-		return strings.TrimSpace(cfgKey), false, nil
-	}
-	if keyFile != "" {
-		if data, readErr := readFile(keyFile); readErr == nil {
-			if k := strings.TrimSpace(string(data)); k != "" {
-				return k, true, nil
-			}
-		}
-	}
-	k, err := provision()
-	if err != nil {
-		return "", false, err
-	}
-	return strings.TrimSpace(k), false, nil
-}
-
-func writeKeyFile(path, key string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte(key+"\n"), 0o600)
 }
 
 // Report enqueues err for delivery. Safe to call when self-reporting is off.
@@ -165,6 +162,11 @@ func (r *Reporter) installLogHook(cfgLevel string) {
 		return
 	}
 	logger.InstallLevelHook(min, func(level zerolog.Level, message string) {
+		// Failures produced while running the ingest itself must not spawn a
+		// second generation of self-reports (e.g. during a DB outage).
+		if r.sink != nil && r.sink.inSelf.Load() {
+			return
+		}
 		opts := []wt.ReportOption{wt.WithTag("log." + strings.ToLower(level.String()))}
 		err := fmt.Errorf("%s", message)
 		if level >= zerolog.FatalLevel {

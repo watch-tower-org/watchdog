@@ -2,9 +2,9 @@ package wt
 
 import "time"
 
-// event mirrors the backend's IngestEventRequest JSON contract. Field order
+// Event mirrors the backend's IngestEventRequest JSON contract. Field order
 // and names must match backend/internal/model/event.go exactly.
-type event struct {
+type Event struct {
 	Message    string         `json:"message"`
 	ErrorType  string         `json:"error_type,omitempty"`
 	StackTrace string         `json:"stack_trace,omitempty"`

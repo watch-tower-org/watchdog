@@ -79,12 +79,9 @@ type LoggerConfig struct {
 // services.
 type SelfReportConfig struct {
 	Enabled bool
-	BaseURL string
-	APIKey  string
 	Project string
 	Release string
 	Level   string // minimum forwarded log level ("fatal", "error", ...)
-	KeyFile string // where the auto-provisioned API key plaintext is kept
 }
 
 type OutputMode string
@@ -152,12 +149,9 @@ func LoadConfig() *Config {
 		},
 		SelfReport: SelfReportConfig{
 			Enabled: getEnv("SELF_REPORT_ENABLED", "true") == "true",
-			BaseURL: getEnv("SELF_REPORT_BASE_URL", "http://localhost:"+serverPort),
-			APIKey:  getEnv("SELF_REPORT_API_KEY", ""),
 			Project: getEnv("SELF_REPORT_PROJECT", "watchtower-self"),
 			Release: getEnv("SELF_REPORT_RELEASE", ""),
 			Level:   getEnv("SELF_REPORT_LEVEL", "fatal"),
-			KeyFile: getEnv("SELF_REPORT_KEY_FILE", ""),
 		},
 	}
 	return config

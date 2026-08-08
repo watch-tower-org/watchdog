@@ -177,12 +177,11 @@ router.Use(wt.RecoverMiddleware())
 - Connects to Postgres for storage.
 - **Self-reports its own errors** using the same SDK/mechanism it exposes
   to other services (dogfooding).
-  - Implemented by `backend/pkg/selfreport`: a dedicated `watchtower-self`
-    project and API key are auto-provisioned on first boot (plaintext
-    persisted to `<LOGGER_LOG_DIR>/self-report.key`, reused on restart;
-    `SELF_REPORT_API_KEY` overrides). The backend holds a `wt.Client`
-    pointed at its own ingestion endpoint, so self-reports flow through the
-    real HTTP/auth/dedup/alert pipeline.
+  - Implemented by `backend/pkg/selfreport`: the backend holds a `wt.Client`
+    configured with a custom `Sender` that hands captured events directly to
+    the local ingestion controller, so no API key or HTTP endpoint is
+    required. Self-reports flow through the real fingerprint/dedup/alert
+    pipeline and land under the `watchtower-self` project.
   - Sources: recovered panics (gin recovery middleware reports with
     url/method/client_ip context) and zerolog messages at or above
     `SELF_REPORT_LEVEL` (default `fatal`; `error` forwards 5xx request logs
@@ -193,9 +192,10 @@ router.Use(wt.RecoverMiddleware())
     Postgres being unavailable, self-reporting must not depend on a
     working DB write. Fall back to stderr/log file in that case so
     visibility isn't lost during the exact moment things break hardest.
-    The ingestion endpoint rejects self-reports with 401/500 while the DB
-    is down, so the SDK drops the event and logs the failed send to
-    stderr — the zerolog stdout/file output still works.
+    The sink logs a single failed-ingest line while the DB is down, and a
+    reentrancy guard (the log hook is suppressed while the ingest itself is
+    running) prevents the failure from re-triggering self-reports in a loop.
+    The zerolog stdout/file output still works.
 
 ---
 
@@ -242,14 +242,11 @@ docker compose down              # volumes (DB, logs) are preserved
 
 - `postgres` service is internal (not published to the host); it runs a
   healthcheck and the backend waits for it.
-- Self-reporting works in the container too: `SELF_REPORT_BASE_URL` points
-  at `http://watchtower:8080` (the compose service name), the
-  `watchtower-self` key is auto-provisioned, and logs/keys persist in the
-  `wt-logs` volume.
+- Self-reporting works in the container too — it is in-process, so no extra
+  configuration is needed; logs persist in the `wt-logs` volume.
 - Overridable via a `.env` at the repo root (or shell env): `DB_USER`,
   `DB_PASSWORD`, `DB_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
-  `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`,
-  `SELF_REPORT_API_KEY`.
+  `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`.
 - The backend `go.mod` replaces the SDK with a local path (`../sdk/go`);
   the `Dockerfile` copies `sdk/` into the builder so the replacement
   resolves during the image build.

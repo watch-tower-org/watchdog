@@ -1,89 +1,110 @@
 package selfreport
 
 import (
+	"context"
 	"errors"
-	"os"
-	"path/filepath"
+	"sync"
 	"testing"
+	"time"
+
+	wt "github.com/watch-tower-org/watchdog/sdk/go"
 
 	"github.com/watch-tower-org/watchdog/backend/internal/config"
+	"github.com/watch-tower-org/watchdog/backend/internal/model"
 )
 
-func TestResolveKeyPrefersExplicitOverride(t *testing.T) {
-	key, fromFile, err := resolveKey("wt_override", "/nonexistent", os.ReadFile, func() (string, error) {
-		t.Fatal("provision should not be called when override is set")
-		return "", nil
-	})
+// stubIngester records what sink.Send hands over.
+type stubIngester struct {
+	mu      sync.Mutex
+	reqs    []*model.IngestEventRequest
+	fail    error
+	results []*model.IngestResult
+}
+
+func (s *stubIngester) IngestBatch(_ context.Context, reqs []*model.IngestEventRequest) ([]*model.IngestResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.reqs = append(s.reqs, reqs...)
+	if s.fail != nil {
+		return nil, s.fail
+	}
+	return s.results, nil
+}
+
+func (s *stubIngester) seen() []*model.IngestEventRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]*model.IngestEventRequest(nil), s.reqs...)
+}
+
+func TestSinkConvertsEventsToIngestRequests(t *testing.T) {
+	stub := &stubIngester{results: []*model.IngestResult{{IssueID: 7, EventID: 9, IsNewIssue: true}}}
+	s := &sink{ingest: stub}
+
+	ts := "2026-08-08T00:00:00Z"
+	results, err := s.Send(context.Background(), []wt.Event{{
+		Message:    "boom",
+		ErrorType:  "runtime.errorString",
+		StackTrace: "main.foo\n\t/main.go:10",
+		Project:    "watchtower-self",
+		Tag:        "log.error",
+		Context:    map[string]any{"url": "/x"},
+		Timestamp:  mustTimePtr(t, ts),
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if key != "wt_override" || fromFile {
-		t.Fatalf("key=%q fromFile=%v", key, fromFile)
+	if len(results) != 1 || results[0].IssueID != 7 || !results[0].IsNewIssue {
+		t.Fatalf("results = %+v", results)
+	}
+	reqs := stub.seen()
+	if len(reqs) != 1 {
+		t.Fatalf("ingest reqs = %d", len(reqs))
+	}
+	r := reqs[0]
+	if r.Message != "boom" || r.ErrorType != "runtime.errorString" || r.StackTrace != "main.foo\n\t/main.go:10" {
+		t.Errorf("req = %+v", r)
+	}
+	if r.Project != "watchtower-self" || r.Tag != "log.error" || r.Context["url"] != "/x" {
+		t.Errorf("req = %+v", r)
+	}
+	if r.Timestamp == nil || r.Timestamp.Format("2006-01-02T15:04:05Z07:00") != ts {
+		t.Errorf("timestamp = %v", r.Timestamp)
 	}
 }
 
-func TestResolveKeyReadsExistingFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "key")
-	if err := os.WriteFile(path, []byte("wt_file_key\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	key, fromFile, err := resolveKey("", path, os.ReadFile, func() (string, error) {
-		t.Fatal("provision should not be called when file exists")
-		return "", nil
-	})
+func TestSinkEmptyBatchIsNoOp(t *testing.T) {
+	stub := &stubIngester{}
+	s := &sink{ingest: stub}
+	results, err := s.Send(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if key != "wt_file_key" || !fromFile {
-		t.Fatalf("key=%q fromFile=%v", key, fromFile)
+	if len(results) != 0 || len(stub.seen()) != 0 {
+		t.Fatalf("results=%v reqs=%v", results, stub.seen())
 	}
 }
 
-func TestResolveKeyEmptyFileFallsBackToProvision(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "key")
-	if err := os.WriteFile(path, []byte("   \n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	key, fromFile, err := resolveKey("", path, os.ReadFile, func() (string, error) {
-		return "wt_provisioned", nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if key != "wt_provisioned" || fromFile {
-		t.Fatalf("key=%q fromFile=%v", key, fromFile)
-	}
-}
-
-func TestResolveKeyProvisionErrorPropagates(t *testing.T) {
-	_, _, err := resolveKey("", "", os.ReadFile, func() (string, error) {
-		return "", errors.New("db down")
-	})
+func TestSinkReturnsErrorAndNoResultsOnFailure(t *testing.T) {
+	stub := &stubIngester{fail: errors.New("db down")}
+	s := &sink{ingest: stub}
+	_, err := s.Send(context.Background(), []wt.Event{{Message: "x"}})
 	if err == nil {
-		t.Fatal("expected error from provision to propagate")
+		t.Fatal("expected error from ingest to propagate")
 	}
 }
 
-func TestWriteKeyFileCreatesDirsAndPerms(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "nested", "dir", keyFileName)
-	if err := writeKeyFile(path, "wt_secret"); err != nil {
+func TestSinkReentrancyGuardClearsAfterIngest(t *testing.T) {
+	stub := &stubIngester{results: []*model.IngestResult{{IssueID: 1}}}
+	s := &sink{ingest: stub}
+	if s.inSelf.Load() {
+		t.Fatal("guard should start false")
+	}
+	if _, err := s.Send(context.Background(), []wt.Event{{Message: "x"}}); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != "wt_secret\n" {
-		t.Fatalf("content = %q", string(data))
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.Mode().Perm() != 0o600 {
-		t.Errorf("permissions = %v, want 0600", info.Mode().Perm())
+	if s.inSelf.Load() {
+		t.Fatal("guard should be cleared after Send returns")
 	}
 }
 
@@ -97,11 +118,20 @@ func TestReporterNilSafe(t *testing.T) {
 
 func TestReporterDisabledReturnsNil(t *testing.T) {
 	cfg := config.SelfReportConfig{Enabled: false}
-	r, err := New(cfg, t.TempDir(), nil)
+	r, err := New(cfg, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r != nil {
 		t.Fatalf("expected nil reporter, got %+v", r)
 	}
+}
+
+func mustTimePtr(t *testing.T, s string) *time.Time {
+	t.Helper()
+	parsed, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &parsed
 }

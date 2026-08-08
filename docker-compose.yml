@@ -41,10 +41,8 @@ services:
       LOGGER_LEVEL: info
       LOGGER_LOG_DIR: /var/log/watchtower
       SELF_REPORT_ENABLED: "true"
-      SELF_REPORT_BASE_URL: http://watchtower:8080
       SELF_REPORT_PROJECT: watchtower-self
       SELF_REPORT_LEVEL: error
-      SELF_REPORT_API_KEY: ${SELF_REPORT_API_KEY:-}
     volumes:
       - wt-logs:/var/log/watchtower
     depends_on:
