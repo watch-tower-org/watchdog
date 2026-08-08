@@ -22,9 +22,10 @@ dev-web:
 # Run the backend API (:8080) and the Vite dev server (:5173) together.
 # Stop both at once with Ctrl+C.
 dev-all:
-	@trap 'kill 0' INT TERM EXIT; \
-	(cd $(BACKEND) && go run .) & \
-	npm --prefix $(WEB_DIR) run dev; \
+	@set -m; \
+	trap 'kill -TERM -$$backend_pid -$$web_pid 2>/dev/null' INT TERM EXIT; \
+	(cd $(BACKEND) && go run .) & backend_pid=$$!; \
+	npm --prefix $(WEB_DIR) run dev & web_pid=$$!; \
 	wait
 
 # Build a production single binary with the frontend embedded.

@@ -14,6 +14,8 @@ func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig) {
 	grp.Use(middleware.AuthMiddleware(cfg))
 
 	grp.GET("", h.List)
+	grp.GET("/:id", h.Get)
 	grp.POST("", h.Create)
+	grp.PUT("/:id", h.Update)
 	grp.PUT("/:id/revoke", h.Revoke)
 }

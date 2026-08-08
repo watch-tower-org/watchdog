@@ -71,6 +71,7 @@ export interface RecipientList {
 export interface ApiKey {
   id: number
   name: string
+  masked: string
   project: string
   is_active: boolean
   last_used_at: string | null

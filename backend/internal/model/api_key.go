@@ -12,6 +12,7 @@ type ApiKey struct {
 	ID         int64      `bun:"id,pk,autoincrement" json:"id"`
 	Name       string     `bun:"name,notnull" json:"name"`
 	KeyHash    string     `bun:"key_hash,unique,notnull" json:"-"`
+	Masked     string     `bun:"masked,notnull,default:''" json:"masked"`
 	Project    string     `bun:"project,notnull,default:''" json:"project"`
 	IsActive   bool       `bun:"is_active,notnull,default:true" json:"is_active"`
 	LastUsedAt *time.Time `bun:"last_used_at,nullzero" json:"last_used_at,omitempty"`
@@ -22,6 +23,11 @@ type ApiKey struct {
 type CreateApiKeyRequest struct {
 	Name    string `json:"name" validate:"required"`
 	Project string `json:"project"`
+}
+
+type UpdateApiKeyRequest struct {
+	Name    *string `json:"name"`
+	Project *string `json:"project"`
 }
 
 type CreateApiKeyResponse struct {

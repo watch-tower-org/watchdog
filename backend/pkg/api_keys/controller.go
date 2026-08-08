@@ -42,6 +42,14 @@ func HashKey(key string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// MaskKey returns the display form wt_...abcd (prefix + last 4 chars).
+func MaskKey(key string) string {
+	if len(key) <= 4 {
+		return key
+	}
+	return keyPrefix + "..." + key[len(key)-4:]
+}
+
 func (c *Controller) List(ctx context.Context, page, pageSize int) ([]model.ApiKey, *model.PageInfo, error) {
 	if page < 1 {
 		page = 1
@@ -97,6 +105,7 @@ func (c *Controller) Create(ctx context.Context, req *model.CreateApiKeyRequest)
 	ak := &model.ApiKey{
 		Name:      req.Name,
 		KeyHash:   HashKey(key),
+		Masked:    MaskKey(key),
 		Project:   req.Project,
 		IsActive:  true,
 		CreatedAt: time.Now(),
@@ -154,4 +163,32 @@ func (c *Controller) GetByID(ctx context.Context, id int64) (*model.ApiKey, erro
 	}
 
 	return &ak, nil
+}
+
+func (c *Controller) Update(ctx context.Context, id int64, req *model.UpdateApiKeyRequest) (*model.ApiKey, error) {
+	ak, err := c.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Name != nil {
+		ak.Name = *req.Name
+	}
+	if req.Project != nil {
+		ak.Project = *req.Project
+	}
+
+	ak.UpdatedAt = time.Now()
+
+	_, err = c.db.NewUpdate().
+		Model(ak).
+		Where("id = ?", ak.ID).
+		Exec(ctx)
+
+	if err != nil {
+		logger.Ctx(ctx).Error().Msgf("failed to update api key id=%d: %v", id, err)
+		return nil, errors.New("Failed to update API key.")
+	}
+
+	return ak, nil
 }

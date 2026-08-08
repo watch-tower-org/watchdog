@@ -67,6 +67,12 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		return err
 	}
 
+	// Add the masked column to api_keys if it doesn't exist yet (older installs).
+	if _, err := db.ExecContext(ctx, `ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS masked text NOT NULL DEFAULT ''`); err != nil {
+		logger.Error().Msgf("failed to add masked column to api_keys: %v", err)
+		return err
+	}
+
 	logger.Info().Msgf("Database tables created successfully")
 
 	return nil

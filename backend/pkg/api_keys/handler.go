@@ -52,6 +52,44 @@ func (h *Handler) Create(c *gin.Context) {
 	res.Created(c, "api key created successfully", created)
 }
 
+func (h *Handler) Get(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		res.BadRequest(c, "Invalid id")
+		return
+	}
+
+	ak, err := h.controller.GetByID(c.Request.Context(), id)
+	if err != nil {
+		res.BadRequest(c, err.Error())
+		return
+	}
+
+	res.Ok(c, "api key retrieved successfully", ak)
+}
+
+func (h *Handler) Update(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		res.BadRequest(c, "Invalid id")
+		return
+	}
+
+	var req model.UpdateApiKeyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		res.BadRequest(c, "Invalid request body")
+		return
+	}
+
+	ak, err := h.controller.Update(c.Request.Context(), id, &req)
+	if err != nil {
+		res.BadRequest(c, err.Error())
+		return
+	}
+
+	res.Ok(c, "api key updated successfully", ak)
+}
+
 func (h *Handler) Revoke(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

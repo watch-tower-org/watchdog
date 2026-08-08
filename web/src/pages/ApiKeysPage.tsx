@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Copy, Check, KeyRound, Loader2, Plus, ShieldX } from 'lucide-react'
+import {
+  Copy,
+  Check,
+  KeyRound,
+  Loader2,
+  Pencil,
+  Plus,
+  ShieldX,
+} from 'lucide-react'
 import { getApi, getErrorMessage } from '@/lib/api'
 import type { ApiKey, CreateApiKeyResponse, PageInfo } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -43,6 +51,7 @@ export function ApiKeysPage() {
   const [page, setPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [revoking, setRevoking] = useState<ApiKey | null>(null)
+  const [editing, setEditing] = useState<ApiKey | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['api-keys', page],
@@ -89,23 +98,24 @@ export function ApiKeysPage() {
               <TableRow>
                 <TableHead>ID</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Key</TableHead>
                 <TableHead>Project</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>Last used</TableHead>
                 <TableHead className="w-24 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center">
+                  <TableCell colSpan={7} className="py-10 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : (data?.data ?? []).length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={7}
                     className="py-10 text-center text-muted-foreground"
                   >
                     <KeyRound className="mx-auto mb-2 h-8 w-8" />
@@ -117,6 +127,11 @@ export function ApiKeysPage() {
                   <TableRow key={key.id}>
                     <TableCell className="text-muted-foreground">{key.id}</TableCell>
                     <TableCell className="font-medium">{key.name}</TableCell>
+                    <TableCell>
+                      <code className="font-mono text-xs text-muted-foreground">
+                        {key.masked}
+                      </code>
+                    </TableCell>
                     <TableCell>
                       {key.project ? (
                         <Badge>{key.project}</Badge>
@@ -134,18 +149,29 @@ export function ApiKeysPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(key.created_at).toLocaleDateString()}
+                      {key.last_used_at
+                        ? new Date(key.last_used_at).toLocaleString()
+                        : 'never'}
                     </TableCell>
                     <TableCell className="text-right">
                       {key.is_active && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setRevoking(key)}
-                        >
-                          <ShieldX className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditing(key)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setRevoking(key)}
+                          >
+                            <ShieldX className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                     </TableCell>
                   </TableRow>
@@ -186,8 +212,15 @@ export function ApiKeysPage() {
       <CreateKeyDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onCreated={() => {
-          setCreateOpen(false)
+        onCreated={() => queryClient.invalidateQueries({ queryKey: ['api-keys'] })}
+      />
+
+      <EditKeyDialog
+        key={editing?.id ?? 'none'}
+        apiKey={editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        onSaved={() => {
+          setEditing(null)
           queryClient.invalidateQueries({ queryKey: ['api-keys'] })
         }}
       />
@@ -329,6 +362,88 @@ function CreateKeyDialog({
               </Button>
             </>
           )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function EditKeyDialog({
+  apiKey,
+  onOpenChange,
+  onSaved,
+}: {
+  apiKey: ApiKey | null
+  onOpenChange: (open: boolean) => void
+  onSaved: () => void
+}) {
+  const [name, setName] = useState('')
+  const [project, setProject] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (apiKey) {
+      setName(apiKey.name)
+      setProject(apiKey.project)
+    }
+  }, [apiKey])
+
+  const save = async () => {
+    if (!apiKey) return
+    setSaving(true)
+    try {
+      await getApi().put(`/api-keys/${apiKey.id}`, {
+        name,
+        project: project.trim(),
+      })
+      toast.success('API key updated')
+      onSaved()
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!apiKey} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit API key</DialogTitle>
+          <DialogDescription>
+            Update the name or project label. The key value never changes.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-key-name">Name</Label>
+            <Input
+              id="edit-key-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="backend-api"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-key-project">Project (optional)</Label>
+            <Input
+              id="edit-key-project"
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+              placeholder="leave empty for global"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={saving || !name.trim()}>
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
