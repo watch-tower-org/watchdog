@@ -44,6 +44,7 @@ wt.RecoverHandler(func() { doWork() })
 
 - `wt.DefaultConfig()` — sane defaults (5s flush interval, batch size 100, queue 5000, 10s HTTP timeout, 2 send retries).
 - `wt.ConfigFromEnv()` — build a config from `WATCHTOWER_*` env vars (`WATCHTOWER_BASE_URL`, `WATCHTOWER_API_KEY`, `WATCHTOWER_PROJECT`, `WATCHTOWER_TAG`, `WATCHTOWER_RELEASE`, `WATCHTOWER_SAMPLE_RATE`).
+- `BaseURL` must be an absolute `http`/`https` URL including a host; `NewClient` rejects malformed URLs with a descriptive error. Reachability is not checked at init, so a valid-but-unreachable URL only surfaces when a batch flush fails.
 - `wt.Config.Sender` — override delivery with a custom `Sender` (`Send(ctx, []Event)`); `BaseURL`/`APIKey` then become optional. Used by WatchTower's own in-process self-reporting.
 - `wt.Config.MaxRetries` — additional attempts for a failed background batch flush (default 2). Retries run in the flusher goroutine, so callers never block; `ReportSync` is always one-shot.
 

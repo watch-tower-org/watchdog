@@ -58,6 +58,40 @@ func TestReportPanicSetsErrorType(t *testing.T) {
 	}
 }
 
+func TestGlobalReportPanicUsesProcessWideClient(t *testing.T) {
+	c := newCapture(t, "wt_secret")
+	if err := Init(testConfig(c, "wt_secret")); err != nil {
+		t.Fatal(err)
+	}
+
+	ReportPanic(&sentinelErr{msg: "panicked globally"})
+	Flush()
+
+	reqs := c.requests()
+	if len(reqs) != 1 || len(reqs[0].Events) != 1 {
+		t.Fatalf("expected 1 event, got %d requests / %d events", len(reqs), len(reqs[0].Events))
+	}
+	if got := reqs[0].Events[0].Message; got != "panicked globally" {
+		t.Errorf("message = %q", got)
+	}
+	if reqs[0].Events[0].StackTrace == "" {
+		t.Error("expected a panic stack trace")
+	}
+
+	// Restore a clean global state (disabled client, no goroutines).
+	if err := Init(Config{Disable: true}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestGlobalReportPanicWithoutInitIsNoop(t *testing.T) {
+	// Ensure no global client is set.
+	if err := Init(Config{Disable: true}); err != nil {
+		t.Fatal(err)
+	}
+	ReportPanic(errors.New("ignored")) // must not panic
+}
+
 func TestInitReplacesAndClosesPrevious(t *testing.T) {
 	c1 := newCapture(t, "wt_secret")
 	c2 := newCapture(t, "wt_secret")

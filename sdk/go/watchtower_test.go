@@ -140,6 +140,44 @@ func TestNewClientValidation(t *testing.T) {
 	}
 }
 
+func TestNewClientRejectsMalformedBaseURL(t *testing.T) {
+	cases := []struct {
+		name    string
+		baseURL string
+		wantErr bool
+	}{
+		{name: "valid http", baseURL: "http://localhost:8080", wantErr: false},
+		{name: "valid https", baseURL: "https://watchtower.example.com", wantErr: false},
+		{name: "missing scheme", baseURL: "localhost:8080", wantErr: true},
+		{name: "wrong scheme", baseURL: "ftp://watchtower.example.com", wantErr: true},
+		{name: "no host", baseURL: "http://", wantErr: true},
+		{name: "unparsable", baseURL: "://bad", wantErr: true},
+		{name: "whitespace padded", baseURL: "  http://localhost:8080  ", wantErr: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.BaseURL = tc.baseURL
+			cfg.APIKey = "k"
+			cfg.Project = "p"
+			cl, err := NewClient(cfg)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for BaseURL %q", tc.baseURL)
+				}
+				if cl != nil {
+					cl.Close()
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for BaseURL %q: %v", tc.baseURL, err)
+			}
+			cl.Close()
+		})
+	}
+}
+
 func TestDisabledClientNoop(t *testing.T) {
 	c := newCapture(t, "wt_secret")
 	cfg := testConfig(c, "wt_secret")

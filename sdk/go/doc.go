@@ -25,10 +25,12 @@
 //	wt.Report(err, wt.WithTag("checkout"), wt.WithContext(map[string]any{"order_id": "ord_1234"}))
 //
 // Use ReportSync for low-volume or test paths where you need the ingest result
-// (issue ID, whether it is a new issue or a regression). Use RecoverMiddleware
-// in an net/http server to report panics and respond 500 without killing the
-// process, and RecoverHandler to re-raise panics after reporting (Sentry-style
-// semantics for worker/goroutine wrappers).
+// (issue ID, whether it is a new issue or a regression). Use ReportPanic from
+// custom recovery code to report a recovered panic value with its panic-time
+// stack. Use RecoverMiddleware in an net/http server to report panics and
+// respond 500 without killing the process, and RecoverHandler to re-raise
+// panics after reporting (Sentry-style semantics for worker/goroutine
+// wrappers).
 //
 // # Delivery
 //

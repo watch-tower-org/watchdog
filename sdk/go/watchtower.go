@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -119,6 +120,9 @@ func NewClient(cfg Config) (*Client, error) {
 	if cfg.Sender == nil {
 		if strings.TrimSpace(cfg.BaseURL) == "" {
 			return nil, errors.New("watchtower: BaseURL is required (or provide a Sender)")
+		}
+		if err := validateBaseURL(cfg.BaseURL); err != nil {
+			return nil, err
 		}
 		if strings.TrimSpace(cfg.APIKey) == "" {
 			return nil, errors.New("watchtower: APIKey is required (or provide a Sender)")
@@ -304,6 +308,32 @@ func defaultClient() *Client {
 func Report(err error, opts ...ReportOption) {
 	if c := defaultClient(); c != nil {
 		c.Report(err, opts...)
+	}
+}
+
+// validateBaseURL rejects BaseURLs that cannot possibly work: it must be an
+// absolute URL with an http(s) scheme and a host. Reachability is not checked
+// here; that is the application's concern at flush time.
+func validateBaseURL(baseURL string) error {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return fmt.Errorf("watchtower: invalid BaseURL %q: %w", baseURL, err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("watchtower: BaseURL %q must use the http or https scheme", baseURL)
+	}
+	if u.Host == "" {
+		return fmt.Errorf("watchtower: BaseURL %q must include a host", baseURL)
+	}
+	return nil
+}
+
+// ReportPanic sends a recovered panic value via the process-wide client (see
+// Init). It is intended for custom recovery middleware; it never blocks and
+// never re-raises the panic.
+func ReportPanic(v any, opts ...ReportOption) {
+	if c := defaultClient(); c != nil {
+		c.ReportPanic(v, opts...)
 	}
 }
 
