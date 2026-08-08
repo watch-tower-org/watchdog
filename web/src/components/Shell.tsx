@@ -5,6 +5,7 @@ import {
   Mail,
   KeyRound,
   LogOut,
+  Bug,
   Radar,
   Users,
 } from 'lucide-react'
@@ -13,9 +14,11 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/settings', label: 'Settings', icon: SettingsIcon },
+  { to: '/issues', label: 'Issues', icon: Bug },
+  { to: '/events', label: 'Events', icon: Radar },
   { to: '/recipient-lists', label: 'Recipient Lists', icon: Users },
   { to: '/api-keys', label: 'API Keys', icon: KeyRound },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
 export function Shell() {

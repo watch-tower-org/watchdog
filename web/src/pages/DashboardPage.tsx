@@ -64,16 +64,16 @@ export function DashboardPage() {
       to: '/api-keys',
     },
     {
-      title: 'Open issues',
+      title: 'Issues',
       value: summary?.issues ?? 0,
       icon: AlertTriangle,
-      to: '#',
+      to: '/issues',
     },
     {
       title: 'Events',
       value: summary?.events ?? 0,
       icon: Radar,
-      to: '#',
+      to: '/events',
     },
   ]
 

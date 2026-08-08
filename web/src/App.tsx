@@ -10,6 +10,9 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { RecipientListsPage } from '@/pages/RecipientListsPage'
 import { ApiKeysPage } from '@/pages/ApiKeysPage'
+import { IssuesPage } from '@/pages/IssuesPage'
+import { IssueDetailPage } from '@/pages/IssueDetailPage'
+import { EventsPage } from '@/pages/EventsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 const queryClient = new QueryClient({
@@ -49,6 +52,9 @@ export default function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/recipient-lists" element={<RecipientListsPage />} />
               <Route path="/api-keys" element={<ApiKeysPage />} />
+              <Route path="/issues" element={<IssuesPage />} />
+              <Route path="/issues/:id" element={<IssueDetailPage />} />
+              <Route path="/events" element={<EventsPage />} />
             </Route>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<NotFoundPage />} />

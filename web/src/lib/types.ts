@@ -84,3 +84,31 @@ export interface CreateApiKeyResponse {
   key: string
   key_id: number
 }
+
+export type IssueStatus = 'open' | 'resolved' | 'muted'
+
+export interface Issue {
+  id: number
+  fingerprint: string
+  title: string
+  project: string
+  tag: string
+  status: IssueStatus
+  first_seen: string
+  last_seen: string
+  count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface IssueEvent {
+  id: number
+  issue_id: number
+  timestamp: string
+  message: string
+  stack_trace: string
+  context: Record<string, unknown> | null
+  project: string
+  tag: string
+  created_at: string
+}
