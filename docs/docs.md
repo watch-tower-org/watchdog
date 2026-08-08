@@ -230,16 +230,25 @@ router.Use(wt.RecoverMiddleware())
 ## 10. Self-Hosting with Docker
 
 A single multi-stage `Dockerfile` builds the web dashboard and embeds it
-into a static Go binary (`scratch` runtime, no shell). `docker-compose.yml`
-at the repo root runs the full stack:
+into a static Go binary (`scratch` runtime, no shell). The image is published
+on Docker Hub as `watchtowerorg/watchdog` (`latest` / `vX.Y.Z`,
+linux/amd64 + linux/arm64). `docker-compose.yml` at the repo root runs the
+full stack, pulling the published image by default:
 
 ```bash
-docker compose up -d --build     # or: make docker-compose-up
+docker compose up -d             # pulls watchtowerorg/watchdog (or: make docker-compose-up)
 # dashboard: http://localhost:8080  (admin / ADMIN_PASSWORD, default superSecret123!)
 docker compose logs -f watchtower
 docker compose down              # volumes (DB, logs) are preserved
 ```
 
+- To build from source instead of pulling: `docker compose up -d --build`
+  (compose builds from `docker/Dockerfile` and tags it as
+  `watchtowerorg/watchdog:latest` locally); `make docker` builds a separate
+  local image named `watchtower:local`.
+- Publish a new multi-arch release with `make docker-publish VERSION=vX.Y.Z`
+  (requires a `multiarch` buildx builder:
+  `docker buildx create --name multiarch --driver docker-container --bootstrap`).
 - `postgres` service is internal (not published to the host); it runs a
   healthcheck and the backend waits for it.
 - Self-reporting works in the container too — it is in-process, so no extra

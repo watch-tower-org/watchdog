@@ -3,7 +3,7 @@ BACKEND   := backend
 EMBED_DIR := $(BACKEND)/web/dist
 BIN       := bin/watchtower
 
-.PHONY: all dev dev-all dev-web build docker docker-compose-up docker-compose-down docker-compose-logs clean
+.PHONY: all dev dev-all dev-web build docker docker-publish docker-compose-up docker-compose-down docker-compose-logs clean
 
 all: build
 
@@ -37,11 +37,19 @@ build:
 
 # Build the production Docker image (multi-stage: web -> go -> scratch).
 docker:
-	docker build -f docker/Dockerfile -t watchtower .
+	docker build -f docker/Dockerfile -t watchtower:local .
+
+# Publish a multi-arch image (linux/amd64 + linux/arm64) to Docker Hub.
+# Usage: make docker-publish VERSION=v0.1.0
+docker-publish:
+	docker buildx build --builder multiarch -f docker/Dockerfile \
+		--platform linux/amd64,linux/arm64 \
+		-t watchtowerorg/watchdog:latest -t watchtowerorg/watchdog:$(VERSION) --push .
 
 # Bring up the full stack (Postgres + WatchTower) via docker compose.
+# Pulls watchtowerorg/watchdog by default; add --build to build from source.
 docker-compose-up:
-	docker compose up -d --build
+	docker compose up -d
 
 docker-compose-down:
 	docker compose down

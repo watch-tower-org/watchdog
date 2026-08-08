@@ -1,0 +1,21 @@
+# VCS
+.git
+.gitignore
+
+# Local secrets / env (never bake credentials into the image)
+backend/.env
+backend/.env.*
+
+# Local runtime artifacts (baked-in secrets and stale builds must not reach the image)
+backend/logs
+backend/bin
+backend/web/dist
+web/dist
+web/node_modules
+node_modules
+
+# Docs / tooling (not needed in the build context)
+docs
+Makefile
+docker-compose.yml
+.dockerignore

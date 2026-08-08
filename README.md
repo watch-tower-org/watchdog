@@ -43,7 +43,7 @@ Prereqs: [Docker](https://docs.docker.com/) with Compose v2.
 
 ```bash
 git clone <repo> && cd WatchTower
-docker compose up -d --build        # or: make docker-compose-up
+docker compose up -d            # pulls watchtowerorg/watchdog (or: make docker-compose-up)
 ```
 
 - Dashboard: http://localhost:8080
@@ -56,6 +56,12 @@ docker compose down                 # or: make docker-compose-down   (volumes pr
 
 The `postgres` service stays internal to the Compose network; the backend
 waits for its healthcheck. Logs persist in the `wt-logs` volume.
+
+The WatchTower image is published on Docker Hub as
+[`watchtowerorg/watchdog`](https://hub.docker.com/r/watchtowerorg/watchdog)
+(`latest` / `vX.Y.Z`, linux/amd64 + linux/arm64). To build from source instead
+of pulling, use `docker compose up -d --build` (or `make docker` for a local
+image).
 
 Overrides come from a `.env` at the repo root or your shell environment:
 `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
