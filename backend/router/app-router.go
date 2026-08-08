@@ -17,6 +17,7 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/pkg/issues"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
+	"github.com/watch-tower-org/watchdog/backend/pkg/version"
 	"github.com/watch-tower-org/watchdog/backend/web"
 )
 
@@ -52,6 +53,7 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 		events.Router(v1, app.EventsC, &app.Config.JWT)
 		alert_rules.Router(v1, app.AlertRulesC, &app.Config.JWT)
 		alert_log.Router(v1, app.AlertLogC, &app.Config.JWT)
+		version.Router(v1, app.DB)
 	}
 
 	web.Register(router, "/api/watchtower/v1")
