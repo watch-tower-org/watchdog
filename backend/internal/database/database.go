@@ -9,7 +9,6 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
-
 	"github.com/watch-tower-org/watchdog/backend/internal/config"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 )
@@ -39,12 +38,17 @@ func New(cfg config.DatabaseConfig) (*Database, error) {
 			cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.SSLMode)
 		adminDB := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(adminDSN)))
 
+		defer func(adminDB *sql.DB) {
+			err := adminDB.Close()
+			if err != nil {
+				logger.Error().Err(err).Msg("Failed to close admin database connection")
+			}
+		}(adminDB)
+
 		_, err = adminDB.Exec(fmt.Sprintf("CREATE DATABASE %s", cfg.Name))
 		if err != nil {
-			adminDB.Close()
 			return nil, fmt.Errorf("failed to create database %q: %w", cfg.Name, err)
 		}
-		adminDB.Close()
 
 		logger.Info().Msgf("Database %s created successfully", cfg.Name)
 
@@ -54,7 +58,6 @@ func New(cfg config.DatabaseConfig) (*Database, error) {
 		sqldb.SetMaxIdleConns(cfg.MaxIdleConns)
 		sqldb.SetConnMaxLifetime(cfg.ConnMaxLifetime)
 		db = bun.NewDB(sqldb, pgdialect.New())
-
 		err = db.Ping()
 		if err != nil {
 			return nil, fmt.Errorf("failed to ping newly created database %q: %w", cfg.Name, err)

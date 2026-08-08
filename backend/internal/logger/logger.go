@@ -2,105 +2,227 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
-	"gopkg.in/natefinch/lumberjack.v2"
-
+	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 	"github.com/watch-tower-org/watchdog/backend/internal/config"
+	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+const (
+	colorReset   = "\033[0m"
+	colorRed     = "\033[31m"
+	colorYellow  = "\033[33m"
+	colorWhite   = "\033[37m"
+	colorGreen   = "\033[32m"
+	colorBlue    = "\033[34m"
+	colorCyan    = "\033[36m"
+	colorMagenta = "\033[35m"
+
+	timeFormat = "2006-01-02 15:04:05.000"
 )
 
 var (
-	logger zerolog.Logger
-	once   sync.Once
+	once sync.Once
+	dw   *dailyWriter
 )
+
+type dailyWriter struct {
+	mu         sync.Mutex
+	inner      *lumberjack.Logger
+	dir        string
+	prefix     string
+	date       string
+	maxSize    int
+	maxBackups int
+	maxAge     int
+	compress   bool
+}
+
+func newDailyWriter(dir, prefix string, maxSize, maxBackups, maxAge int, compress bool) *dailyWriter {
+	w := &dailyWriter{
+		dir:        dir,
+		prefix:     prefix,
+		maxSize:    maxSize,
+		maxBackups: maxBackups,
+		maxAge:     maxAge,
+		compress:   compress,
+	}
+	w.rotate(time.Now())
+	return w
+}
+
+func (w *dailyWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	now := time.Now()
+	today := now.Format("2006-01-02")
+	if today != w.date {
+		if err := w.inner.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "logger: failed to close previous log file: %v\n", err)
+		}
+		w.rotate(now)
+	}
+	return w.inner.Write(p)
+}
+
+func (w *dailyWriter) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.inner != nil {
+		return w.inner.Close()
+	}
+	return nil
+}
+
+func (w *dailyWriter) rotate(now time.Time) {
+	date := now.Format("2006-01-02")
+	w.date = date
+	w.inner = &lumberjack.Logger{
+		Filename:   filepath.Join(w.dir, fmt.Sprintf("%s-%s.log", w.prefix, date)),
+		MaxSize:    w.maxSize,
+		MaxBackups: w.maxBackups,
+		MaxAge:     w.maxAge,
+		Compress:   w.compress,
+	}
+}
 
 func InitLogger(cfg config.LoggerConfig) {
 	once.Do(func() {
-		zerolog.TimeFieldFormat = time.RFC3339
 		level := parseLevel(cfg.Level)
 		zerolog.SetGlobalLevel(level)
+		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
+		zerolog.TimeFieldFormat = timeFormat
 
 		var writers []io.Writer
 
 		if cfg.Output == config.OutputStdout || cfg.Output == config.OutputBoth {
-			writers = append(writers, os.Stdout)
+			writers = append(writers, consoleWriter(cfg))
 		}
+
 		if cfg.Output == config.OutputFile || cfg.Output == config.OutputBoth {
-			lj := &lumberjack.Logger{
-				Filename:   cfg.LogDir + "/" + cfg.Filename + ".log",
-				MaxSize:    cfg.MaxSizeMB,
-				MaxBackups: cfg.MaxBackups,
-				MaxAge:     cfg.MaxAgeDays,
-				Compress:   cfg.Compress,
-			}
-			writers = append(writers, lj)
+			dw = newDailyWriter(
+				cfg.LogDir, cfg.Filename,
+				cfg.MaxSizeMB, cfg.MaxBackups, cfg.MaxAgeDays, cfg.Compress,
+			)
+			writers = append(writers, dw)
 		}
 
-		if len(writers) == 0 {
-			writers = append(writers, os.Stdout)
-		}
-
-		var writer io.Writer
-		if len(writers) == 1 {
-			writer = writers[0]
-		} else {
-			writer = zerolog.MultiLevelWriter(writers...)
-		}
-
+		l := zerolog.New(io.MultiWriter(writers...)).With().Timestamp()
 		if cfg.EnableCaller {
-			logger = zerolog.New(writer).With().Timestamp().Caller().Logger()
-		} else {
-			logger = zerolog.New(writer).With().Timestamp().Logger()
+			l = l.Caller()
 		}
+		log.Logger = l.Logger()
 	})
 }
 
-func parseLevel(level string) zerolog.Level {
-	switch strings.ToLower(level) {
-	case "debug":
-		return zerolog.DebugLevel
-	case "warn":
+func Close() {
+	if dw != nil {
+		if err := dw.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "logger: error closing log file: %v\n", err)
+		}
+	}
+}
+
+func consoleWriter(cfg config.LoggerConfig) zerolog.ConsoleWriter {
+	return zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		NoColor:    false,
+		TimeFormat: timeFormat,
+		FormatCaller: func(i interface{}) string {
+			s, ok := i.(string)
+			if !ok || !cfg.EnableCaller {
+				return ""
+			}
+			return colorBlue + filepath.Base(s) + " >" + colorReset
+		},
+		FormatTimestamp: func(i interface{}) string {
+			s, ok := i.(string)
+			if !ok {
+				return ""
+			}
+			return colorWhite + "• " + s + " •" + colorReset
+		},
+		FormatLevel: func(i interface{}) string {
+			s, ok := i.(string)
+			if !ok {
+				return ""
+			}
+			return "|" + levelColor(s) + "|"
+		},
+		FormatMessage: func(i interface{}) string {
+			s, _ := i.(string)
+			return s
+		},
+		PartsOrder: []string{
+			zerolog.TimestampFieldName,
+			zerolog.LevelFieldName,
+			zerolog.CallerFieldName,
+			zerolog.MessageFieldName,
+		},
+	}
+}
+
+func levelColor(level string) string {
+	switch strings.ToUpper(level) {
+	case "INFO":
+		return colorYellow + level + colorReset
+	case "ERROR", "FATAL":
+		return colorRed + level + colorReset
+	case "WARN":
+		return colorMagenta + level + colorReset
+	case "DEBUG":
+		return colorGreen + level + colorReset
+	case "TRACE":
+		return colorCyan + level + colorReset
+	default:
+		return colorWhite + level + colorReset
+	}
+}
+
+func parseLevel(logLevel string) zerolog.Level {
+	switch strings.ToUpper(logLevel) {
+	case "INFO":
+		return zerolog.InfoLevel
+	case "WARN":
 		return zerolog.WarnLevel
-	case "error":
+	case "ERROR":
 		return zerolog.ErrorLevel
-	case "trace":
+	case "DEBUG":
+		return zerolog.DebugLevel
+	case "TRACE":
 		return zerolog.TraceLevel
+	case "FATAL":
+		return zerolog.FatalLevel
+	case "NONE":
+		return zerolog.NoLevel
+	case "SILENT":
+		return zerolog.Disabled
 	default:
 		return zerolog.InfoLevel
 	}
 }
 
-func Info() *zerolog.Event {
-	return logger.Info()
-}
-
-func Debug() *zerolog.Event {
-	return logger.Debug()
-}
-
-func Warn() *zerolog.Event {
-	return logger.Warn()
-}
-
-func Error() *zerolog.Event {
-	return logger.Error()
-}
-
-func Fatal() *zerolog.Event {
-	return logger.Fatal()
-}
-
 func Ctx(ctx context.Context) *zerolog.Logger {
 	l := zerolog.Ctx(ctx)
-	if l == nil {
-		return &logger
+	if l.GetLevel() == zerolog.Disabled {
+		return &log.Logger
 	}
 	return l
 }
 
-func Close() {}
+func Warn() *zerolog.Event  { return log.Warn() }
+func Info() *zerolog.Event  { return log.Info() }
+func Error() *zerolog.Event { return log.Error() }
+func Debug() *zerolog.Event { return log.Debug() }
+func Trace() *zerolog.Event { return log.Trace() }
+func Fatal() *zerolog.Event { return log.Fatal() }
