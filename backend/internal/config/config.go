@@ -18,6 +18,7 @@ type Config struct {
 	RateLimit    RateLimitConfig
 	CORS         CORSConfig
 	LoggerConfig LoggerConfig
+	SelfReport   SelfReportConfig
 }
 
 type ServerConfig struct {
@@ -73,6 +74,19 @@ type LoggerConfig struct {
 	EnableCaller bool
 }
 
+// SelfReportConfig controls dogfooding: the backend reporting its own errors
+// back into itself through the same SDK/ingestion pipeline it exposes to other
+// services.
+type SelfReportConfig struct {
+	Enabled bool
+	BaseURL string
+	APIKey  string
+	Project string
+	Release string
+	Level   string // minimum forwarded log level ("fatal", "error", ...)
+	KeyFile string // where the auto-provisioned API key plaintext is kept
+}
+
 type OutputMode string
 
 const (
@@ -87,9 +101,11 @@ func LoadConfig() *Config {
 		fmt.Print("Attempting to read configuration from system environment variables\n")
 	}
 
+	serverPort := getEnv("SERVER_PORT", "8080")
+
 	config := &Config{
 		Server: ServerConfig{
-			Port:     getEnv("SERVER_PORT", "8080"),
+			Port:     serverPort,
 			Mode:     getEnv("GIN_MODE", "release"),
 			TimeZone: getEnv("TZ", "UTC"),
 		},
@@ -133,6 +149,15 @@ func LoadConfig() *Config {
 			MaxAgeDays:   getEnvInt("LOGGER_MAX_AGE_DAYS", 30),
 			Compress:     getEnv("LOGGER_COMPRESS", "false") == "true",
 			EnableCaller: getEnv("LOGGER_ENABLE_CALLER", "false") == "true",
+		},
+		SelfReport: SelfReportConfig{
+			Enabled: getEnv("SELF_REPORT_ENABLED", "true") == "true",
+			BaseURL: getEnv("SELF_REPORT_BASE_URL", "http://localhost:"+serverPort),
+			APIKey:  getEnv("SELF_REPORT_API_KEY", ""),
+			Project: getEnv("SELF_REPORT_PROJECT", "watchtower-self"),
+			Release: getEnv("SELF_REPORT_RELEASE", ""),
+			Level:   getEnv("SELF_REPORT_LEVEL", "fatal"),
+			KeyFile: getEnv("SELF_REPORT_KEY_FILE", ""),
 		},
 	}
 	return config

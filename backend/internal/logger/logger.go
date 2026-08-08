@@ -98,7 +98,7 @@ func (w *dailyWriter) rotate(now time.Time) {
 
 func InitLogger(cfg config.LoggerConfig) {
 	once.Do(func() {
-		level := parseLevel(cfg.Level)
+		level := ParseLevel(cfg.Level)
 		zerolog.SetGlobalLevel(level)
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = timeFormat
@@ -131,6 +131,32 @@ func Close() {
 			fmt.Fprintf(os.Stderr, "logger: error closing log file: %v\n", err)
 		}
 	}
+}
+
+// LevelHookFn receives a log level and its message. It is invoked for every
+// message at or above the installed minimum level. Fatal/Panic levels should be
+// handled synchronously (zerolog calls os.Exit immediately after writing).
+type LevelHookFn func(level zerolog.Level, message string)
+
+type levelHook struct {
+	min zerolog.Level
+	fn  LevelHookFn
+}
+
+func (h *levelHook) Run(e *zerolog.Event, level zerolog.Level, message string) {
+	if h == nil || h.fn == nil {
+		return
+	}
+	if level < h.min {
+		return
+	}
+	h.fn(level, message)
+}
+
+// InstallLevelHook wraps the global logger with a hook that forwards every
+// message at or above min to fn. It must be called after InitLogger.
+func InstallLevelHook(min zerolog.Level, fn LevelHookFn) {
+	log.Logger = log.Logger.Hook(&levelHook{min: min, fn: fn})
 }
 
 func consoleWriter(cfg config.LoggerConfig) zerolog.ConsoleWriter {
@@ -189,7 +215,9 @@ func levelColor(level string) string {
 	}
 }
 
-func parseLevel(logLevel string) zerolog.Level {
+// ParseLevel maps a config string ("info", "error", ...) to a zerolog level.
+// Unknown or empty values fall back to InfoLevel.
+func ParseLevel(logLevel string) zerolog.Level {
 	switch strings.ToUpper(logLevel) {
 	case "INFO":
 		return zerolog.InfoLevel

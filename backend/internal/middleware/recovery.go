@@ -9,10 +9,24 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/internal/res"
 )
 
-func Recovery() gin.HandlerFunc {
+// RecoverFn is called with the recovered panic value and request context. It
+// may be nil (no reporting).
+type RecoverFn func(v any, ctx map[string]any)
+
+// Recovery recovers panics from downstream handlers, logs them, reports them
+// via the optional self-reporting callback, and responds 500 so the server
+// stays alive.
+func Recovery(report RecoverFn) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		defer func() {
 			if err := recover(); err != nil {
+				if report != nil {
+					report(err, map[string]any{
+						"url":       c.Request.URL.Path,
+						"method":    c.Request.Method,
+						"client_ip": c.ClientIP(),
+					})
+				}
 				logger.Error().
 					Interface("panic", err).
 					Bytes("stack", debug.Stack()).

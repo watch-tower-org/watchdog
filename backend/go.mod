@@ -14,6 +14,7 @@ require (
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18
 	github.com/uptrace/bun/driver/pgdriver v1.2.18
+	github.com/watch-tower-org/watchdog/sdk/go v0.0.0-00010101000000-000000000000
 	golang.org/x/crypto v0.54.0
 	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -60,3 +61,5 @@ require (
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	mellium.im/sasl v0.3.2 // indirect
 )
+
+replace github.com/watch-tower-org/watchdog/sdk/go => ../sdk/go

@@ -21,6 +21,7 @@ import (
 	"github.com/watch-tower-org/watchdog/backend/pkg/issues"
 	"github.com/watch-tower-org/watchdog/backend/pkg/notifier"
 	"github.com/watch-tower-org/watchdog/backend/pkg/recipient_lists"
+	"github.com/watch-tower-org/watchdog/backend/pkg/selfreport"
 	"github.com/watch-tower-org/watchdog/backend/pkg/settings"
 )
 
@@ -41,6 +42,7 @@ type Application struct {
 	AlertRulesC     *alert_rules.Controller
 	AlertLogC       *alert_log.Controller
 	Notifier        *notifier.Notifier
+	SelfReport      *selfreport.Reporter
 }
 
 func NewApplication(cfg *config.Config, db *database.Database) (*Application, error) {
@@ -54,6 +56,7 @@ func NewApplication(cfg *config.Config, db *database.Database) (*Application, er
 	if err := app.initDefaults(); err != nil {
 		return nil, fmt.Errorf("init defaults: %w", err)
 	}
+	app.initSelfReport()
 	app.Notifier.Start()
 
 	return app, nil
@@ -94,7 +97,25 @@ func (app *Application) initDefaults() error {
 	return nil
 }
 
+// initSelfReport wires the dogfooding reporter. Failures are non-fatal: the
+// backend keeps running with stderr/log-file visibility.
+func (app *Application) initSelfReport() {
+	sr, err := selfreport.New(
+		app.Config.SelfReport,
+		app.Config.LoggerConfig.LogDir,
+		app.ApiKeysC,
+	)
+	if err != nil {
+		logger.Warn().Err(err).Msg("self-reporting disabled")
+		return
+	}
+	app.SelfReport = sr
+}
+
 func (app *Application) Shutdown() {
+	if app.SelfReport != nil {
+		app.SelfReport.Close()
+	}
 	if app.Notifier != nil {
 		app.Notifier.Shutdown()
 	}

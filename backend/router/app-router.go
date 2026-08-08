@@ -29,7 +29,11 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 	router.RemoveExtraSlash = false
 
 	router.Use(middleware.Logger())
-	router.Use(middleware.Recovery())
+	router.Use(middleware.Recovery(func(v any, ctx map[string]any) {
+		if app.SelfReport != nil {
+			app.SelfReport.Recover(v, ctx)
+		}
+	}))
 	router.Use(middleware.CORS(&app.Config.CORS))
 	router.Use(middleware.RateLimit(&app.Config.RateLimit))
 	router.Use(middleware.SecurityHeaders())

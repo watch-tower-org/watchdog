@@ -9,6 +9,40 @@ import (
 	"time"
 )
 
+func TestReportPanicReportsPanicValue(t *testing.T) {
+	c := newCapture(t, "wt_secret")
+	cfg := testConfig(c, "wt_secret")
+	cfg.BatchInterval = time.Hour
+	cl, _ := NewClient(cfg)
+	defer cl.Close()
+
+	cl.ReportPanic("nil map access",
+		WithTag("recovered"),
+		WithContext(map[string]any{"handler": "checkout"}))
+	cl.Flush()
+
+	reqs := c.requests()
+	if len(reqs) != 1 {
+		t.Fatalf("expected 1 report, got %d", len(reqs))
+	}
+	e := reqs[0].Events[0]
+	if e.Message != "nil map access" {
+		t.Errorf("message = %q, want panic value", e.Message)
+	}
+	if e.Tag != "recovered" {
+		t.Errorf("tag = %q", e.Tag)
+	}
+	if e.Context["handler"] != "checkout" {
+		t.Errorf("context = %v", e.Context)
+	}
+	if e.StackTrace == "" {
+		t.Error("expected a non-empty panic stack trace")
+	}
+	if strings.Contains(e.StackTrace, sdkPackagePrefix) {
+		t.Errorf("panic stack should not contain SDK frames:\n%s", e.StackTrace)
+	}
+}
+
 func TestRecoverMiddlewareReportsAndReturns500(t *testing.T) {
 	c := newCapture(t, "wt_secret")
 	cfg := testConfig(c, "wt_secret")

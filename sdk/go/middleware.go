@@ -7,7 +7,7 @@ import "net/http"
 func (c *Client) recoverHTTP(w http.ResponseWriter, r *http.Request, next http.Handler, opts []ReportOption) {
 	defer func() {
 		if v := recover(); v != nil {
-			c.reportPanic(v, append(opts, WithContext(map[string]any{
+			c.ReportPanic(v, append(opts, WithContext(map[string]any{
 				"url":    r.URL.Path,
 				"method": r.Method,
 			}))...)
@@ -46,7 +46,7 @@ func RecoverMiddleware(opts ...ReportOption) func(http.Handler) http.Handler {
 func (c *Client) recoverFn(fn func(), opts []ReportOption) {
 	defer func() {
 		if v := recover(); v != nil {
-			c.reportPanic(v, opts...)
+			c.ReportPanic(v, opts...)
 			panic(v)
 		}
 	}()

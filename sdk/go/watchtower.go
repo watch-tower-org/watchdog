@@ -163,9 +163,10 @@ func (c *Client) ReportSync(err error, opts ...ReportOption) ([]Result, error) {
 	return c.tr.send(ctx, []event{e})
 }
 
-// reportPanic reports a recovered panic value, using the panic stack captured
-// at recovery time.
-func (c *Client) reportPanic(v any, opts ...ReportOption) {
+// ReportPanic reports a recovered panic value, using the panic stack captured
+// at recovery time. It is intended for custom recovery middleware; it never
+// blocks and never re-raises the panic.
+func (c *Client) ReportPanic(v any, opts ...ReportOption) {
 	if c == nil || c.disabled {
 		return
 	}

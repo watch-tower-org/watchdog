@@ -177,10 +177,25 @@ router.Use(wt.RecoverMiddleware())
 - Connects to Postgres for storage.
 - **Self-reports its own errors** using the same SDK/mechanism it exposes
   to other services (dogfooding).
+  - Implemented by `backend/pkg/selfreport`: a dedicated `watchtower-self`
+    project and API key are auto-provisioned on first boot (plaintext
+    persisted to `<LOGGER_LOG_DIR>/self-report.key`, reused on restart;
+    `SELF_REPORT_API_KEY` overrides). The backend holds a `wt.Client`
+    pointed at its own ingestion endpoint, so self-reports flow through the
+    real HTTP/auth/dedup/alert pipeline.
+  - Sources: recovered panics (gin recovery middleware reports with
+    url/method/client_ip context) and zerolog messages at or above
+    `SELF_REPORT_LEVEL` (default `fatal`; `error` forwards 5xx request logs
+    and other logged errors, tagged `log.<level>`). Fatal/Panic logs are
+    reported synchronously because zerolog exits the process right after
+    writing them.
   - Important edge case: if the backend's own error is caused by
     Postgres being unavailable, self-reporting must not depend on a
     working DB write. Fall back to stderr/log file in that case so
     visibility isn't lost during the exact moment things break hardest.
+    The ingestion endpoint rejects self-reports with 401/500 while the DB
+    is down, so the SDK drops the event and logs the failed send to
+    stderr — the zerolog stdout/file output still works.
 
 ---
 
