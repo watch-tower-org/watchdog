@@ -3,7 +3,7 @@ BACKEND   := backend
 EMBED_DIR := $(BACKEND)/web/dist
 BIN       := bin/watchtower
 
-.PHONY: all dev dev-all dev-web build docker clean
+.PHONY: all dev dev-all dev-web build docker docker-compose-up docker-compose-down docker-compose-logs clean
 
 all: build
 
@@ -38,6 +38,16 @@ build:
 # Build the production Docker image (multi-stage: web -> go -> scratch).
 docker:
 	docker build -f docker/Dockerfile -t watchtower .
+
+# Bring up the full stack (Postgres + WatchTower) via docker compose.
+docker-compose-up:
+	docker compose up -d --build
+
+docker-compose-down:
+	docker compose down
+
+docker-compose-logs:
+	docker compose logs -f watchtower
 
 clean:
 	rm -rf $(WEB_DIR)/dist $(EMBED_DIR)

@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-watchtower}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-watchtower}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  watchtower:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WATCHTOWER_PORT:-8080}:8080"
+    environment:
+      SERVER_PORT: "8080"
+      GIN_MODE: release
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME:-watchtower}
+      DB_SSL_MODE: disable
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-superSecret123!}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-watchtower-compose-secret-key}
+      JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-watchtower-compose-refresh-secret-key}
+      RATE_LIMIT_REQUESTS: "100"
+      RATE_LIMIT_WINDOW: 1m
+      LOGGER_OUTPUT: both
+      LOGGER_LEVEL: info
+      LOGGER_LOG_DIR: /var/log/watchtower
+      SELF_REPORT_ENABLED: "true"
+      SELF_REPORT_BASE_URL: http://watchtower:8080
+      SELF_REPORT_PROJECT: watchtower-self
+      SELF_REPORT_LEVEL: error
+      SELF_REPORT_API_KEY: ${SELF_REPORT_API_KEY:-}
+    volumes:
+      - wt-logs:/var/log/watchtower
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  wt-logs:

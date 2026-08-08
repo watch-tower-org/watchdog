@@ -224,3 +224,32 @@ router.Use(wt.RecoverMiddleware())
 5. First-boot setup flow (SMTP, API key, recipient lists, throttle
    config).
 6. Retention/sampling once volume becomes a real concern.
+
+---
+
+## 10. Self-Hosting with Docker
+
+A single multi-stage `Dockerfile` builds the web dashboard and embeds it
+into a static Go binary (`scratch` runtime, no shell). `docker-compose.yml`
+at the repo root runs the full stack:
+
+```bash
+docker compose up -d --build     # or: make docker-compose-up
+# dashboard: http://localhost:8080  (admin / ADMIN_PASSWORD, default superSecret123!)
+docker compose logs -f watchtower
+docker compose down              # volumes (DB, logs) are preserved
+```
+
+- `postgres` service is internal (not published to the host); it runs a
+  healthcheck and the backend waits for it.
+- Self-reporting works in the container too: `SELF_REPORT_BASE_URL` points
+  at `http://watchtower:8080` (the compose service name), the
+  `watchtower-self` key is auto-provisioned, and logs/keys persist in the
+  `wt-logs` volume.
+- Overridable via a `.env` at the repo root (or shell env): `DB_USER`,
+  `DB_PASSWORD`, `DB_NAME`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
+  `JWT_SECRET_KEY`, `JWT_REFRESH_SECRET_KEY`, `WATCHTOWER_PORT`,
+  `SELF_REPORT_API_KEY`.
+- The backend `go.mod` replaces the SDK with a local path (`../sdk/go`);
+  the `Dockerfile` copies `sdk/` into the builder so the replacement
+  resolves during the image build.

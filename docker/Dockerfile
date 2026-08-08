@@ -16,12 +16,16 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 WORKDIR /app
 
-# Copy go mod first (cached independently)
+# Copy go mod files first (cached independently). The backend module replaces
+# the SDK with a local path (../sdk/go), so the SDK's go.mod must be present
+# before the module graph is resolved.
 COPY backend/go.mod backend/go.sum ./backend/
+COPY sdk/go/go.mod ./sdk/go/
 RUN cd backend && go mod download
 
-# Copy all source
+# Copy all source (SDK included so the replace directive resolves)
 COPY backend/ ./backend/
+COPY sdk/ ./sdk/
 
 # Embed the built frontend
 COPY --from=web-builder /app/web/dist ./backend/web/dist/
