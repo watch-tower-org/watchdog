@@ -22,7 +22,9 @@ type VersionInfo struct {
 
 // CheckVersion verifies that baseURL points to a WatchTower instance and
 // returns its version. The API key is sent for authentication; an invalid or
-// revoked key fails the check. The caller controls the timeout via ctx.
+// revoked key fails the check. The caller controls the timeout via ctx. The
+// reported version is informational and may be empty when the instance was
+// built without version metadata; only identity (product) is validated.
 func CheckVersion(ctx context.Context, baseURL, apiKey string) (VersionInfo, error) {
 	var info VersionInfo
 
@@ -60,9 +62,6 @@ func CheckVersion(ctx context.Context, baseURL, apiKey string) (VersionInfo, err
 	}
 	if payload.Data.Product != expectedProduct {
 		return info, fmt.Errorf("watchtower: %s is not a WatchTower instance (product %q)", base, payload.Data.Product)
-	}
-	if strings.TrimSpace(payload.Data.Version) == "" {
-		return info, fmt.Errorf("watchtower: %s did not report a version", base)
 	}
 	return payload.Data, nil
 }

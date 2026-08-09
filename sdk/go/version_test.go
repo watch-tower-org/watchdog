@@ -75,14 +75,12 @@ func TestCheckVersion(t *testing.T) {
 			errContains: "not a WatchTower instance",
 		},
 		{
-			name: "empty version",
+			name: "empty version accepted",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"watchdog","version":""}}`))
 			},
-			key:        "k",
-			wantErr:    true,
-			errContains: "did not report a version",
+			key: "k",
 		},
 		{
 			name: "server error",
