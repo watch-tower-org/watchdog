@@ -32,7 +32,7 @@ COPY sdk/ ./sdk/
 # Embed the built frontend
 COPY --from=web-builder /app/web/dist ./backend/web/dist/
 
-RUN cd backend && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X github.com/watch-tower-org/watchdog/backend/internal/version.Version=$(VERSION)" -tags netgo -o /app/main .
+RUN cd backend && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X github.com/watch-tower-org/watchtower/backend/internal/version.Version=$(VERSION)" -tags netgo -o /app/main .
 
 # Stage 3: Runtime
 FROM scratch

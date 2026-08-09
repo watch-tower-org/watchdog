@@ -1,4 +1,4 @@
-module github.com/watch-tower-org/watchdog/backend
+module github.com/watch-tower-org/watchtower/backend
 
 go 1.26.1
 
@@ -14,7 +14,7 @@ require (
 	github.com/uptrace/bun v1.2.18
 	github.com/uptrace/bun/dialect/pgdialect v1.2.18
 	github.com/uptrace/bun/driver/pgdriver v1.2.18
-	github.com/watch-tower-org/watchdog/sdk/go v0.1.0
+	github.com/watch-tower-org/watchtower/sdk/go v0.2.0
 	golang.org/x/crypto v0.54.0
 	gopkg.in/mail.v2 v2.3.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -62,4 +62,4 @@ require (
 	mellium.im/sasl v0.3.2 // indirect
 )
 
-replace github.com/watch-tower-org/watchdog/sdk/go => ../sdk/go
+replace github.com/watch-tower-org/watchtower/sdk/go => ../sdk/go

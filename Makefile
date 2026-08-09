@@ -34,7 +34,7 @@ build:
 	npm --prefix $(WEB_DIR) run build
 	rm -rf $(EMBED_DIR) && cp -R $(WEB_DIR)/dist $(EMBED_DIR)
 	mkdir -p $(BACKEND)/$(dir $(BIN))
-	cd $(BACKEND) && go build -ldflags="-s -w -X github.com/watch-tower-org/watchdog/backend/internal/version.Version=$(VERSION)" -o $(BIN) .
+	cd $(BACKEND) && go build -ldflags="-s -w -X github.com/watch-tower-org/watchtower/backend/internal/version.Version=$(VERSION)" -o $(BIN) .
 
 # Build the production Docker image (multi-stage: web -> go -> scratch).
 docker:
@@ -46,10 +46,10 @@ docker-publish:
 	docker buildx build --builder multiarch -f docker/Dockerfile \
 		--platform linux/amd64,linux/arm64 \
 		--build-arg VERSION=$(VERSION) \
-		-t watchtowerorg/watchdog:latest -t watchtowerorg/watchdog:$(VERSION) --push .
+		-t watchtowerorg/watchtower:latest -t watchtowerorg/watchtower:$(VERSION) --push .
 
 # Bring up the full stack (Postgres + WatchTower) via docker compose.
-# Pulls watchtowerorg/watchdog by default; add --build to build from source.
+# Pulls watchtowerorg/watchtower by default; add --build to build from source.
 docker-compose-up:
 	docker compose up -d
 

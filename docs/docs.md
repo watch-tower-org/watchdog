@@ -231,12 +231,12 @@ router.Use(wt.RecoverMiddleware())
 
 A single multi-stage `Dockerfile` builds the web dashboard and embeds it
 into a static Go binary (`scratch` runtime, no shell). The image is published
-on Docker Hub as `watchtowerorg/watchdog` (`latest` / `vX.Y.Z`,
+on Docker Hub as `watchtowerorg/watchtower` (`latest` / `vX.Y.Z`,
 linux/amd64 + linux/arm64). `docker-compose.yml` at the repo root runs the
 full stack, pulling the published image by default:
 
 ```bash
-docker compose up -d             # pulls watchtowerorg/watchdog (or: make docker-compose-up)
+docker compose up -d             # pulls watchtowerorg/watchtower (or: make docker-compose-up)
 # dashboard: http://localhost:8080  (admin / ADMIN_PASSWORD, default superSecret123!, set on first boot only)
 docker compose logs -f watchtower
 docker compose down              # volumes (DB, logs) are preserved
@@ -244,7 +244,7 @@ docker compose down              # volumes (DB, logs) are preserved
 
 - To build from source instead of pulling: `docker compose up -d --build`
   (compose builds from `docker/Dockerfile` and tags it as
-  `watchtowerorg/watchdog:latest` locally); `make docker` builds a separate
+  `watchtowerorg/watchtower:latest` locally); `make docker` builds a separate
   local image named `watchtower:local`.
 - Publish a new multi-arch release with `make docker-publish VERSION=vX.Y.Z`
   (requires a `multiarch` buildx builder:
@@ -266,7 +266,7 @@ docker compose down              # volumes (DB, logs) are preserved
 
 ## 11. SDK Release Process
 
-The SDK is a nested Go module (`github.com/watch-tower-org/watchdog/sdk/go`,
+The SDK is a nested Go module (`github.com/watch-tower-org/watchtower/sdk/go`,
 stdlib-only, no `go.sum`). It is published with **submodule version tags**:
 the tag must be `<module dir>/v<version>`, i.e. `sdk/go/v0.1.0`, so Go can
 locate the module boundary inside the monorepo.
@@ -277,7 +277,7 @@ git tag sdk/go/vX.Y.Z
 git push origin sdk/go/vX.Y.Z
 
 # consumers install it with
-go get github.com/watch-tower-org/watchdog/sdk/go@vX.Y.Z
+go get github.com/watch-tower-org/watchtower/sdk/go@vX.Y.Z
 ```
 
 - The backend pins the SDK with `replace ../sdk/go` (local path), so

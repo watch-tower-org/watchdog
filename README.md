@@ -43,7 +43,7 @@ Prereqs: [Docker](https://docs.docker.com/) with Compose v2.
 
 ```bash
 git clone <repo> && cd WatchTower
-docker compose up -d            # pulls watchtowerorg/watchdog (or: make docker-compose-up)
+docker compose up -d            # pulls watchtowerorg/watchtower (or: make docker-compose-up)
 ```
 
 - Dashboard: http://localhost:8080
@@ -60,7 +60,7 @@ The `postgres` service stays internal to the Compose network; the backend
 waits for its healthcheck. Logs persist in the `wt-logs` volume.
 
 The WatchTower image is published on Docker Hub as
-[`watchtowerorg/watchdog`](https://hub.docker.com/r/watchtowerorg/watchdog)
+[`watchtowerorg/watchtower`](https://hub.docker.com/r/watchtowerorg/watchtower)
 (`latest` / `vX.Y.Z`, linux/amd64 + linux/arm64). To build from source instead
 of pulling, use `docker compose up -d --build` (or `make docker` for a local
 image).
@@ -165,13 +165,13 @@ Set `SELF_REPORT_ENABLED=false` to turn it off.
 A published, zero-dependency Go module. Install it with:
 
 ```bash
-go get github.com/watch-tower-org/watchdog/sdk/go@latest
+go get github.com/watch-tower-org/watchtower/sdk/go@latest
 ```
 
 Import the module and initialize a process-wide client:
 
 ```go
-import wt "github.com/watch-tower-org/watchdog/sdk/go"
+import wt "github.com/watch-tower-org/watchtower/sdk/go"
 
 func main() {
     if err := wt.Init(wt.Config{
@@ -299,7 +299,7 @@ docs/       docs.md (full spec), kuwait-university-reference.md
 
 ## Releasing the SDK
 
-The SDK is a nested Go module (`github.com/watch-tower-org/watchdog/sdk/go`).
+The SDK is a nested Go module (`github.com/watch-tower-org/watchtower/sdk/go`).
 Release a new version with a submodule tag:
 
 ```bash
