@@ -2,6 +2,7 @@ WEB_DIR   := web
 BACKEND   := backend
 EMBED_DIR := $(BACKEND)/web/dist
 BIN       := bin/watchtower
+VERSION   ?= dev
 
 .PHONY: all dev dev-all dev-web build docker docker-publish docker-compose-up docker-compose-down docker-compose-logs clean
 
