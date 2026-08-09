@@ -1,3 +1,3 @@
-module github.com/watch-tower-org/watchdog/sdk/go
+module github.com/watch-tower-org/watchtower/sdk/go
 
 go 1.22

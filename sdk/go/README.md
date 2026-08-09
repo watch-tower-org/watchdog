@@ -1,17 +1,17 @@
 # WatchTower Go SDK
 
-A lightweight, **zero-dependency** client for [WatchTower](https://github.com/watch-tower-org/watchdog), a self-hosted error-tracking service.
+A lightweight, **zero-dependency** client for [WatchTower](https://github.com/watch-tower-org/watchtower), a self-hosted error-tracking service.
 
 ## Install
 
 ```bash
-go get github.com/watch-tower-org/watchdog/sdk/go@latest
+go get github.com/watch-tower-org/watchtower/sdk/go@latest
 ```
 
 ## Usage
 
 ```go
-import wt "github.com/watch-tower-org/watchdog/sdk/go"
+import wt "github.com/watch-tower-org/watchtower/sdk/go"
 
 func main() {
     if err := wt.Init(wt.Config{
