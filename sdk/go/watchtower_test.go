@@ -200,7 +200,7 @@ func TestNewClientVerifiesBaseURL(t *testing.T) {
 	t.Run("wrong product", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"product":"not-watchdog","version":"1.0.0"}`))
+			_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"not-watchdog","version":"1.0.0"}}`))
 		}))
 		defer srv.Close()
 

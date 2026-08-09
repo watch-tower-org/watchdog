@@ -24,9 +24,19 @@ func TestCheckVersion(t *testing.T) {
 					t.Errorf("X-Api-Key = %q, want k", got)
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"product":"watchdog","version":"v0.1.3"}`))
+				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchdog","version":"v0.1.4"}}`))
 			},
 			key: "k",
+		},
+		{
+			name: "success false",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"success":false,"code":500,"message":"boom"}`))
+			},
+			key:        "k",
+			wantErr:    true,
+			errContains: "not a WatchTower instance",
 		},
 		{
 			name: "unauthorized key",
@@ -58,7 +68,7 @@ func TestCheckVersion(t *testing.T) {
 			name: "wrong product",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"product":"sentry","version":"1.0.0"}`))
+				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"sentry","version":"1.0.0"}}`))
 			},
 			key:        "k",
 			wantErr:    true,
@@ -68,7 +78,7 @@ func TestCheckVersion(t *testing.T) {
 			name: "empty version",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"product":"watchdog","version":""}`))
+				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"watchdog","version":""}}`))
 			},
 			key:        "k",
 			wantErr:    true,
@@ -121,7 +131,7 @@ func TestCheckVersion(t *testing.T) {
 func TestCheckVersionReturnsInfo(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"product":"watchdog","version":"v0.1.3"}`))
+		_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchdog","version":"v0.1.4"}}`))
 	}))
 	defer srv.Close()
 
@@ -132,7 +142,7 @@ func TestCheckVersionReturnsInfo(t *testing.T) {
 	if info.Product != "watchdog" {
 		t.Errorf("product = %q, want watchdog", info.Product)
 	}
-	if info.Version != "v0.1.3" {
-		t.Errorf("version = %q, want v0.1.3", info.Version)
+	if info.Version != "v0.1.4" {
+		t.Errorf("version = %q, want v0.1.4", info.Version)
 	}
 }

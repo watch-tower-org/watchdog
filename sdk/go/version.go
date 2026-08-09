@@ -46,14 +46,23 @@ func CheckVersion(ctx context.Context, baseURL, apiKey string) (VersionInfo, err
 		return info, fmt.Errorf("watchtower: version check failed: server returned %d", resp.StatusCode)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	// The backend wraps the payload in its standard response envelope, with the
+	// version info under "data".
+	var payload struct {
+		Success bool        `json:"success"`
+		Data    VersionInfo `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		return info, fmt.Errorf("watchtower: %s is not a WatchTower instance", base)
 	}
-	if info.Product != expectedProduct {
-		return info, fmt.Errorf("watchtower: %s is not a WatchTower instance (product %q)", base, info.Product)
+	if !payload.Success {
+		return info, fmt.Errorf("watchtower: %s is not a WatchTower instance", base)
 	}
-	if strings.TrimSpace(info.Version) == "" {
+	if payload.Data.Product != expectedProduct {
+		return info, fmt.Errorf("watchtower: %s is not a WatchTower instance (product %q)", base, payload.Data.Product)
+	}
+	if strings.TrimSpace(payload.Data.Version) == "" {
 		return info, fmt.Errorf("watchtower: %s did not report a version", base)
 	}
-	return info, nil
+	return payload.Data, nil
 }
