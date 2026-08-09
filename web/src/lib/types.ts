@@ -26,13 +26,11 @@ export interface Paginated<T> {
 }
 
 export interface LoginResponse {
-  access_token: string
-  refresh_token: string
   username: string
 }
 
-export interface RefreshResponse {
-  access_token: string
+export interface MeResponse {
+  username: string
 }
 
 export interface Settings {
@@ -123,7 +121,7 @@ export interface AlertRule {
   tag: string
   threshold: number
   window_minutes: number
-  throttle_window: number
+  throttle_window: number | null
   recipient_list_id: number
   recipient_list: RecipientList | null
   is_active: boolean

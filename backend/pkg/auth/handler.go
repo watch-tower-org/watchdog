@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/watch-tower-org/watchtower/backend/internal/config"
@@ -10,13 +12,18 @@ import (
 	"github.com/watch-tower-org/watchtower/backend/internal/validator"
 )
 
-type Handler struct {
-	controller *Controller
-	cfg        *config.JWTConfig
+func intSeconds(d time.Duration) int {
+	return int(d.Seconds())
 }
 
-func NewHandler(controller *Controller, cfg *config.JWTConfig) *Handler {
-	return &Handler{controller: controller, cfg: cfg}
+type Handler struct {
+	controller   *Controller
+	cfg          *config.JWTConfig
+	cookieSecure bool
+}
+
+func NewHandler(controller *Controller, cfg *config.JWTConfig, cookieSecure bool) *Handler {
+	return &Handler{controller: controller, cfg: cfg, cookieSecure: cookieSecure}
 }
 
 func (h *Handler) Login(c *gin.Context) {
@@ -39,22 +46,27 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
+	middleware.SetAuthCookies(
+		c,
+		u.AccessToken,
+		u.RefreshToken,
+		intSeconds(h.cfg.ExpirationDuration),
+		intSeconds(h.cfg.RefreshExpirationDuration),
+		h.cookieSecure,
+	)
+
 	res.Ok(c, "User logged in successfully", u)
 }
 
 func (h *Handler) RefreshToken(c *gin.Context) {
-	var req model.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		res.BadRequest(c, "Invalid request body")
+	// The refresh token comes from the httpOnly cookie, not the request body.
+	refreshToken, _ := c.Cookie(middleware.RefreshTokenCookie)
+	if refreshToken == "" {
+		res.Unauthorized(c, "Refresh token is required")
 		return
 	}
 
-	if err := validator.Validate(&req); err != nil {
-		res.BadRequest(c, "Refresh token is required")
-		return
-	}
-
-	claims, err := middleware.ValidateJWT(req.RefreshToken, h.cfg.RefreshSecretKey)
+	claims, err := middleware.ValidateJWT(refreshToken, h.cfg.RefreshSecretKey)
 	if err != nil {
 		res.Unauthorized(c, "Invalid refresh token")
 		return
@@ -66,6 +78,8 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
+	middleware.RefreshAccessCookie(c, u.AccessToken, intSeconds(h.cfg.ExpirationDuration), h.cookieSecure)
+
 	res.Ok(c, "Token refreshed successfully", u)
 }
 
@@ -75,5 +89,19 @@ func (h *Handler) Logout(c *gin.Context) {
 		return
 	}
 
+	middleware.ClearAuthCookies(c)
+
 	res.Ok(c, "User logged out successfully", nil)
+}
+
+func (h *Handler) Me(c *gin.Context) {
+	username, _ := c.Get("username")
+	if username == nil {
+		res.Unauthorized(c, "Unauthorized")
+		return
+	}
+
+	res.Ok(c, "User retrieved successfully", map[string]string{
+		"username": username.(string),
+	})
 }

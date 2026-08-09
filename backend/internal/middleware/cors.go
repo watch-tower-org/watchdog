@@ -24,6 +24,14 @@ func SecurityHeaders() gin.HandlerFunc {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("Cache-Control", "no-store")
+		c.Header(
+			"Content-Security-Policy",
+			"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "+
+				"img-src 'self' data:; font-src 'self' data:; connect-src 'self'; "+
+				"object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+		)
+		c.Header("Referrer-Policy", "no-referrer")
+		c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		c.Next()
 	}
 }

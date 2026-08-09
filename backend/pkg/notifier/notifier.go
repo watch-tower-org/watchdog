@@ -40,13 +40,14 @@ type Caches struct {
 // email notifications. Evaluation runs on a worker pool so ingestion is never
 // blocked by SMTP or rule evaluation.
 type Notifier struct {
-	db     *bun.DB
-	caches *Caches
-	jobs   chan job
-	stop   chan struct{}
-	ctx    context.Context
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
+	db      *bun.DB
+	caches  *Caches
+	workers int
+	jobs    chan job
+	stop    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
 }
 
 func NewNotifier(db *bun.DB, workers int, caches *Caches) *Notifier {
@@ -55,22 +56,23 @@ func NewNotifier(db *bun.DB, workers int, caches *Caches) *Notifier {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Notifier{
-		db:     db,
-		caches: caches,
-		jobs:   make(chan job, defaultQueueSize),
-		stop:   make(chan struct{}),
-		ctx:    ctx,
-		cancel: cancel,
+		db:      db,
+		caches:  caches,
+		workers: workers,
+		jobs:    make(chan job, defaultQueueSize),
+		stop:    make(chan struct{}),
+		ctx:     ctx,
+		cancel:  cancel,
 	}
 }
 
 // Start launches the worker pool. Safe to call once.
 func (n *Notifier) Start() {
-	for i := 0; i < defaultWorkers; i++ {
+	for i := 0; i < n.workers; i++ {
 		n.wg.Add(1)
 		go n.worker()
 	}
-	logger.Info().Msgf("notification worker pool started (%d workers)", defaultWorkers)
+	logger.Info().Msgf("notification worker pool started (%d workers)", n.workers)
 }
 
 // Shutdown stops the worker pool and waits for in-flight jobs with a timeout.

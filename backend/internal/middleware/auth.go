@@ -41,20 +41,28 @@ func AuthMiddleware(cfg *config.JWTConfig) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		token := c.GetHeader("Authorization")
-		if token == "" {
-			res.Unauthorized(c, "Authorization header is required")
-			c.Abort()
-			return
-		}
 
-		if !strings.HasPrefix(token, "Bearer ") {
+		// Prefer the Authorization header (API clients/curl), fall back to the
+		// httpOnly access-token cookie used by the SPA.
+		var split string
+		token := c.GetHeader("Authorization")
+		switch {
+		case strings.HasPrefix(token, "Bearer "):
+			split = strings.TrimSpace(token[len("Bearer "):])
+		case token != "":
 			res.Unauthorized(c, "Invalid authorization header format")
 			c.Abort()
 			return
+		default:
+			split, _ = c.Cookie(AccessTokenCookie)
 		}
 
-		split := strings.TrimSpace(token[len("Bearer "):])
+		if split == "" {
+			res.Unauthorized(c, "Authorization is required")
+			c.Abort()
+			return
+		}
+
 		claims, err := ValidateJWT(split, cfg.SecretKey)
 		if err != nil {
 			res.Unauthorized(c, "Invalid authorization token")

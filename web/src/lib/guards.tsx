@@ -6,9 +6,21 @@ import { useAuth } from '@/lib/auth'
 import type { Settings } from '@/lib/types'
 import { Loader2 } from 'lucide-react'
 
+export function FullPageLoader() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  )
+}
+
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, checking } = useAuth()
   const location = useLocation()
+
+  if (checking) {
+    return <FullPageLoader />
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />
@@ -18,7 +30,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 }
 
 export function SetupGate({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, checking } = useAuth()
   const location = useLocation()
 
   const { data, isLoading } = useQuery({
@@ -30,16 +42,12 @@ export function SetupGate({ children }: { children: ReactNode }) {
     retry: false,
   })
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />
+  if (checking || isLoading) {
+    return <FullPageLoader />
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   if (data && !data.setup_complete && location.pathname !== '/setup') {

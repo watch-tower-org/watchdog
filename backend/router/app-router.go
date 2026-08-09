@@ -41,7 +41,7 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 
 	v1 := router.Group("/api/watchtower/v1")
 	{
-		auth.Router(v1, app.AuthC, &app.Config.JWT)
+		auth.Router(v1, app.AuthC, &app.Config.JWT, app.Config.Server.CookieSecure)
 		settings.Router(v1, app.SettingsC, &app.Config.JWT)
 		email_settings.Router(v1, app.EmailSettingsC, &app.Config.JWT)
 		alert_settings.Router(v1, app.AlertSettingsC, &app.Config.JWT)

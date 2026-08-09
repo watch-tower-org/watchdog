@@ -84,3 +84,45 @@ func (h *Handler) Update(c *gin.Context) {
 
 	res.Ok(c, "issue updated successfully", issue)
 }
+
+func (h *Handler) Merge(c *gin.Context) {
+	var req model.MergeIssuesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		res.BadRequest(c, "Invalid request body")
+		return
+	}
+
+	if err := validator.Validate(&req); err != nil {
+		res.BadRequest(c, validator.ValidationError(err))
+		return
+	}
+
+	issue, err := h.controller.Merge(c.Request.Context(), req.SourceIDs, req.TargetID)
+	if err != nil {
+		res.BadRequest(c, err.Error())
+		return
+	}
+
+	res.Ok(c, "issues merged successfully", issue)
+}
+
+func (h *Handler) MoveEvents(c *gin.Context) {
+	var req model.MoveEventsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		res.BadRequest(c, "Invalid request body")
+		return
+	}
+
+	if err := validator.Validate(&req); err != nil {
+		res.BadRequest(c, validator.ValidationError(err))
+		return
+	}
+
+	issue, err := h.controller.MoveEvents(c.Request.Context(), req.EventIDs, req.TargetID, req.Title)
+	if err != nil {
+		res.BadRequest(c, err.Error())
+		return
+	}
+
+	res.Ok(c, "events moved successfully", issue)
+}

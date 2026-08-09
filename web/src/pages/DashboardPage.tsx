@@ -21,6 +21,8 @@ export function DashboardPage() {
       const { data } = await getApi().get<{ data: Summary }>('/dashboard/summary')
       return data.data
     },
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
   })
 
   const { data: emailSettings } = useQuery({
@@ -37,7 +39,7 @@ export function DashboardPage() {
     queryKey: ['alert-settings'],
     queryFn: async () => {
       const { data } = await getApi().get<{ data: AlertSettings }>(
-        '/settings/alerts',
+        '/settings/alert',
       )
       return data.data
     },

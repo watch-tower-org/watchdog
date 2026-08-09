@@ -19,12 +19,18 @@ type Config struct {
 	CORS         CORSConfig
 	LoggerConfig LoggerConfig
 	SelfReport   SelfReportConfig
+	Notifier     NotifierConfig
+	Ingestion    IngestionConfig
 }
 
 type ServerConfig struct {
 	Port     string
 	Mode     string
 	TimeZone string
+	// CookieSecure sets the Secure attribute on the auth cookies. Enable when
+	// serving over HTTPS (cookies are otherwise dropped by browsers over
+	// plain HTTP, breaking login).
+	CookieSecure bool
 }
 
 type DatabaseConfig struct {
@@ -57,6 +63,19 @@ type AdminConfig struct {
 type RateLimitConfig struct {
 	Requests int
 	Window   time.Duration
+}
+
+// NotifierConfig controls the alert-evaluation worker pool.
+type NotifierConfig struct {
+	// Workers is the number of goroutines evaluating alert rules. 0 = default.
+	Workers int
+}
+
+// IngestionConfig controls event intake and deduplication.
+type IngestionConfig struct {
+	// FingerprintMode selects the dedup key inputs: "type+frames" (default),
+	// "type", or "message". See ingestion.FingerprintMode.
+	FingerprintMode string
 }
 
 type CORSConfig struct {
@@ -105,9 +124,10 @@ func LoadConfig() *Config {
 
 	config := &Config{
 		Server: ServerConfig{
-			Port:     serverPort,
-			Mode:     getEnv("GIN_MODE", "release"),
-			TimeZone: getEnv("TZ", "UTC"),
+			Port:         serverPort,
+			Mode:         getEnv("GIN_MODE", "release"),
+			TimeZone:     getEnv("TZ", "UTC"),
+			CookieSecure: getEnv("COOKIE_SECURE", "false") == "true",
 		},
 		Database: DatabaseConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
@@ -156,6 +176,12 @@ func LoadConfig() *Config {
 			Project: getEnv("SELF_REPORT_PROJECT", "watchtower-self"),
 			Release: getEnv("SELF_REPORT_RELEASE", ""),
 			Level:   getEnv("SELF_REPORT_LEVEL", "fatal"),
+		},
+		Notifier: NotifierConfig{
+			Workers: getEnvInt("NOTIFIER_WORKERS", 5),
+		},
+		Ingestion: IngestionConfig{
+			FingerprintMode: getEnv("FINGERPRINT_MODE", "type+frames"),
 		},
 	}
 	return config

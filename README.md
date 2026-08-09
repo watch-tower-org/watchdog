@@ -104,6 +104,7 @@ backend, or the container env under Docker).
 | `SERVER_PORT` | `8080` | HTTP listen port |
 | `GIN_MODE` | `release` | `debug` or `release` |
 | `TZ` | `UTC` | Server timezone |
+| `COOKIE_SECURE` | `false` | Set `true` when serving over HTTPS so auth cookies get the `Secure` flag |
 | `DB_HOST` | `localhost` | Postgres host |
 | `DB_PORT` | `5432` | Postgres port |
 | `DB_USER` | `postgres` | Postgres user |
@@ -122,6 +123,8 @@ backend, or the container env under Docker).
 | `JWT_REFRESH_EXPIRATION_DURATION` | `168h` | Refresh-token lifetime |
 | `RATE_LIMIT_REQUESTS` | `100` | Requests per window per client |
 | `RATE_LIMIT_WINDOW` | `1m` | Rate-limit window |
+| `NOTIFIER_WORKERS` | `5` | Alert-evaluation worker goroutines |
+| `FINGERPRINT_MODE` | `type+frames` | Dedup key inputs: `type+frames` (default), `type`, `message`, or `heuristic` |
 | `CORS_ALLOWED_ORIGINS` | `*` | Comma-separated origins |
 | `CORS_ALLOWED_METHODS` | `GET,POST,PUT,PATCH,DELETE,OPTIONS` | Allowed methods |
 | `CORS_ALLOWED_HEADERS` | `Origin,Content-Type,Accept,Authorization,X-Request-ID,X-Api-Key` | Allowed headers |
@@ -262,14 +265,18 @@ loop.
 ## API Overview
 
 All routes are under `/api/watchtower/v1`. Ingestion uses **API-key** auth
-(`X-Api-Key` or `Authorization: Bearer`); everything else uses JWT bearer
-tokens from `/auth/login`.
+(`X-Api-Key` or `Authorization: Bearer`); everything else uses JWT auth.
+`/auth/login` writes the access + refresh tokens to **httpOnly** cookies
+(`SameSite=Lax`, `Secure` when `COOKIE_SECURE=true`); the SPA never sees the
+tokens, so they are safe from XSS. `Authorization: Bearer` still works for API
+clients/curl. Security headers (CSP, HSTS, Referrer-Policy, X-Frame-Options)
+are applied to all responses.
 
 | Group | Methods | Purpose |
 | --- | --- | --- |
-| `/auth` | `POST /login`, `POST /refresh-token`, `POST /logout` | Admin auth |
+| `/auth` | `POST /login`, `POST /refresh-token`, `POST /logout`, `GET /me` | Admin auth (httpOnly cookie sessions) |
 | `/events` | `POST` (ingest) | SDK reporting — single object or array |
-| `/issues` | `GET` (list), `GET /:id`, `PUT /:id` | Issue list/detail/status |
+| `/issues` | `GET` (list), `GET /:id`, `PUT /:id`, `POST /merge`, `POST /move-events` | Issue list/detail/status + merge/split |
 | `/events` | `GET` (list), `GET /:id` | Event history/detail |
 | `/dashboard` | `GET /summary` | Dashboard stats |
 | `/alert-rules` | `GET`, `POST`, `GET /:id`, `PUT /:id`, `DELETE /:id` | Alert rule CRUD |
@@ -279,6 +286,12 @@ tokens from `/auth/login`.
 | `/settings` | `GET`, `PUT` | General settings |
 | `/settings/email` | `GET`, `PUT`, `POST /test` | SMTP settings + test email |
 | `/settings/alert` | `GET`, `PUT` | Global alert/throttle settings |
+
+`AlertRule.throttle_window` is nullable: a rule with `null`/`0` throttle uses
+the global throttle window from `/settings/alert`, applied at evaluation time.
+
+All list endpoints paginate with `page` + `page_size` (`page_size` is clamped
+to 1–100); responses return `page_info {page, page_size, total, total_pages}`.
 
 Ingestion payload keys: `message`, `error_type`, `stack_trace`, `project`,
 `tag`, `context`, `timestamp`. The response echoes `{received, events[]}` with

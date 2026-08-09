@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -42,9 +42,11 @@ export function SetupPage() {
     },
   })
 
-  if (data?.setup_complete) {
-    navigate('/dashboard', { replace: true })
-  }
+  useEffect(() => {
+    if (data?.setup_complete) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [data, navigate])
 
   const set = (key: keyof SetupForm, value: string) =>
     setForm((f) => ({ ...f, [key]: value }))

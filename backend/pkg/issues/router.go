@@ -16,4 +16,6 @@ func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig) {
 	grp.GET("", h.List)
 	grp.GET("/:id", h.Get)
 	grp.PUT("/:id", h.Update)
+	grp.POST("/merge", h.Merge)
+	grp.POST("/move-events", h.MoveEvents)
 }

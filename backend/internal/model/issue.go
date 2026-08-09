@@ -41,3 +41,20 @@ type ListIssuesRequest struct {
 type UpdateIssueRequest struct {
 	Status *IssueStatus `json:"status" validate:"omitempty,oneof=open resolved muted"`
 }
+
+// MergeIssuesRequest moves every event of the source issues into the target
+// issue and deletes the sources.
+type MergeIssuesRequest struct {
+	SourceIDs []int64 `json:"source_ids" validate:"required,min=1,dive,min=1"`
+	TargetID  int64   `json:"target_id" validate:"required,min=1"`
+}
+
+// MoveEventsRequest moves the given events to an issue. If TargetID is set the
+// events are reparented to that existing issue; otherwise a new issue is
+// created (titled from Title, or the first event's message) and the events are
+// moved into it.
+type MoveEventsRequest struct {
+	EventIDs []int64 `json:"event_ids" validate:"required,min=1,dive,min=1"`
+	TargetID int64   `json:"target_id"`
+	Title    string  `json:"title"`
+}

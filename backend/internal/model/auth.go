@@ -17,18 +17,22 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+// LoginResponse carries the session tokens back to the handler, which writes
+// them to httpOnly cookies. The tokens are never serialized into the JSON
+// response body.
 type LoginResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"-"`
+	RefreshToken string `json:"-"`
 	Username     string `json:"username"`
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type RefreshTokenResponse struct {
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"-"`
+	Username    string `json:"username"`
 }
 
 type PageInfo struct {

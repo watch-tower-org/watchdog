@@ -92,7 +92,8 @@ After setup, the dashboard becomes live with three main views:
     running counter, to avoid unbounded storage growth on hot-loop bugs.
 - `alert_rules`
   - `id`, `trigger_type` (new issue / spike / regression), `matcher`
-    (project/tag filter), `throttle_window`, `recipient_list_id`
+    (project/tag filter), `throttle_window` (nullable — unset uses the global
+    setting at eval time), `recipient_list_id`
 - `recipient_lists`
   - `id`, `name`, `emails[]`
 - `alert_log`

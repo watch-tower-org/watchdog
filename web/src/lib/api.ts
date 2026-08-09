@@ -7,21 +7,9 @@ import type { ErrorResponse } from '@/lib/types'
 
 const BASE_URL = '/api/watchtower/v1'
 
-const ACCESS_KEY = 'wt_access_token'
-const REFRESH_KEY = 'wt_refresh_token'
-
-export const tokenStore = {
-  getAccess: () => localStorage.getItem(ACCESS_KEY),
-  getRefresh: () => localStorage.getItem(REFRESH_KEY),
-  set: (access: string, refresh: string) => {
-    localStorage.setItem(ACCESS_KEY, access)
-    localStorage.setItem(REFRESH_KEY, refresh)
-  },
-  clear: () => {
-    localStorage.removeItem(ACCESS_KEY)
-    localStorage.removeItem(REFRESH_KEY)
-  },
-}
+// Session tokens live in httpOnly cookies set by the server, so they are never
+// accessible to JS (XSS-safe) and are sent automatically on same-origin
+// requests.
 
 export interface LoginPayload {
   username: string
@@ -33,15 +21,8 @@ let api: AxiosInstance
 function createApi(): AxiosInstance {
   const instance = axios.create({
     baseURL: BASE_URL,
+    withCredentials: true,
     headers: { 'Content-Type': 'application/json' },
-  })
-
-  instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-    const token = tokenStore.getAccess()
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
   })
 
   instance.interceptors.response.use(
@@ -62,22 +43,15 @@ function createApi(): AxiosInstance {
         !isAuthCall
       ) {
         original._retry = true
-        const refresh = tokenStore.getRefresh()
-        if (refresh) {
-          try {
-            const { data } = await axios.post<{ data: { access_token: string } }>(
-              `${BASE_URL}/auth/refresh-token`,
-              { refresh_token: refresh },
-            )
-            tokenStore.set(data.data.access_token, refresh)
-            original.headers.Authorization = `Bearer ${data.data.access_token}`
-            return instance(original)
-          } catch {
-            tokenStore.clear()
-            window.location.href = '/login'
-          }
-        } else {
-          tokenStore.clear()
+        try {
+          // The refresh token travels in the httpOnly cookie automatically.
+          await axios.post(
+            `${BASE_URL}/auth/refresh-token`,
+            {},
+            { withCredentials: true },
+          )
+          return instance(original)
+        } catch {
           window.location.href = '/login'
         }
       }

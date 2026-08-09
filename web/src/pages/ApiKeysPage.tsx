@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { getApi, getErrorMessage } from '@/lib/api'
 import type { ApiKey, CreateApiKeyResponse, PageInfo } from '@/lib/types'
+import { PaginationControls } from '@/components/Pagination'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -182,32 +183,11 @@ export function ApiKeysPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {data?.page_info.total ?? 0} total
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_previous_page}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {data?.page_info.current_page || 0} / {data?.page_info.total_pages || 0}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_next_page}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <PaginationControls
+        pageInfo={data?.page_info}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <CreateKeyDialog
         open={createOpen}

@@ -94,9 +94,11 @@ func (n *Notifier) evaluate(ctx context.Context, j job) error {
 			continue
 		}
 
-		throttleMinutes := rule.ThrottleWindow
-		if throttleMinutes < 1 {
-			throttleMinutes = alertSettings.ThrottleWindow
+		// Unset (nil) or zero throttle_window on a rule means "use the global
+		// setting", applied here at eval time.
+		throttleMinutes := alertSettings.ThrottleWindow
+		if rule.ThrottleWindow != nil && *rule.ThrottleWindow >= 1 {
+			throttleMinutes = *rule.ThrottleWindow
 		}
 
 		lastSent, err := n.lastSentAt(ctx, issue.ID, rule.ID)

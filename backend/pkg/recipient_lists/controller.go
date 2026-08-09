@@ -10,9 +10,8 @@ import (
 	"github.com/watch-tower-org/watchtower/backend/internal/cache"
 	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/pagination"
 )
-
-const defaultPageSize = 10
 
 type Controller struct {
 	db    *bun.DB
@@ -45,12 +44,7 @@ func (c *Controller) GetByID(ctx context.Context, id int64) (*model.RecipientLis
 }
 
 func (c *Controller) List(ctx context.Context, search string, page, pageSize int) ([]model.RecipientList, *model.PageInfo, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = defaultPageSize
-	}
+	page, pageSize = pagination.Normalize(page, pageSize)
 
 	q := c.db.NewSelect().Model((*model.RecipientList)(nil))
 	countQ := c.db.NewSelect().Model((*model.RecipientList)(nil))

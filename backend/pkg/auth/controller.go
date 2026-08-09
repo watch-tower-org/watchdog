@@ -178,5 +178,6 @@ func (c *Controller) RefreshToken(ctx context.Context, username string) (*model.
 
 	return &model.RefreshTokenResponse{
 		AccessToken: accessToken,
+		Username:    username,
 	}, nil
 }

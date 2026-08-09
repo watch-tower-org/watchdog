@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { Loader2, Plus, Pencil, Trash2, Users } from 'lucide-react'
 import { getApi, getErrorMessage } from '@/lib/api'
 import type { PageInfo, RecipientList } from '@/lib/types'
+import { PaginationControls } from '@/components/Pagination'
+import { useDebouncedValue } from '@/lib/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,16 +44,17 @@ export function RecipientListsPage() {
   const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<RecipientList | null>(null)
   const [deleting, setDeleting] = useState<RecipientList | null>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['recipient-lists', page, search],
+    queryKey: ['recipient-lists', page, debouncedSearch],
     queryFn: async () => {
       const { data } = await getApi().get<{ data: RecipientList[]; page_info: PageInfo }>(
         '/recipient-lists',
-        { params: { page, page_size: PAGE_SIZE, search: search || undefined } },
+        { params: { page, page_size: PAGE_SIZE, search: debouncedSearch || undefined } },
       )
       return data
     },
@@ -71,7 +74,7 @@ export function RecipientListsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search])
+  }, [debouncedSearch])
 
   return (
     <div className="space-y-6">
@@ -176,32 +179,11 @@ export function RecipientListsPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {data?.page_info.total ?? 0} total
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_previous_page}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {data?.page_info.current_page || 0} / {data?.page_info.total_pages || 0}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_next_page}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <PaginationControls
+        pageInfo={data?.page_info}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <ListDialog
         open={dialogOpen}

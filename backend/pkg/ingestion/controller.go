@@ -16,18 +16,21 @@ import (
 type Controller struct {
 	db       *bun.DB
 	notifier *notifier.Notifier
+	mode     FingerprintMode
 }
 
-func NewController(db *bun.DB, n *notifier.Notifier) *Controller {
-	return &Controller{db: db, notifier: n}
+// NewController creates the ingestion controller. mode controls the dedup key
+// (see FingerprintMode); an empty mode uses ModeTypeAndFrames.
+func NewController(db *bun.DB, n *notifier.Notifier, mode FingerprintMode) *Controller {
+	return &Controller{db: db, notifier: n, mode: ParseFingerprintMode(string(mode))}
 }
 
 // Ingest deduplicates a single event into an issue and stores it. Returns the
 // resulting issue/event ids and whether a new issue was created. After commit
 // the notifier is asked (asynchronously) to evaluate alert rules.
 func (c *Controller) Ingest(ctx context.Context, req *model.IngestEventRequest) (*model.IngestResult, error) {
-	errorType := ExtractErrorType(req.Message, req.StackTrace)
-	fingerprint := ComputeFingerprint(req.Project, errorType, req.StackTrace)
+	errorType := ResolveErrorType(req)
+	fingerprint := ComputeFingerprintMode(req.Project, errorType, req.StackTrace, req.Message, c.mode)
 	title := ExtractTitle(req)
 
 	ts := time.Now()

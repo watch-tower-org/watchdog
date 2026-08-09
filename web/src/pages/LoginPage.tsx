@@ -4,17 +4,22 @@ import { toast } from 'sonner'
 import { Radar, Loader2 } from 'lucide-react'
 import { useAuth } from '@/lib/auth'
 import { getErrorMessage } from '@/lib/api'
+import { FullPageLoader } from '@/lib/guards'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export function LoginPage() {
-  const { isAuthenticated, login } = useAuth()
+  const { isAuthenticated, checking, login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  if (checking) {
+    return <FullPageLoader />
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />

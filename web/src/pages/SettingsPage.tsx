@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, Mail, BellRing, Send } from 'lucide-react'
@@ -74,6 +74,12 @@ function EmailSettingsTab() {
       smtp_from_name: s?.smtp_from_name ?? '',
     })
 
+  useEffect(() => {
+    if (data && !form) {
+      syncForm(data)
+    }
+  }, [data, form])
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!form) return
@@ -117,7 +123,6 @@ function EmailSettingsTab() {
   }
 
   if (!form) {
-    syncForm(data)
     return null
   }
 

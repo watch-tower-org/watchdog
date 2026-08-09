@@ -4,6 +4,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { Loader2, Radar } from 'lucide-react'
 import { getApi } from '@/lib/api'
 import type { IssueEvent, PageInfo } from '@/lib/types'
+import { PaginationControls } from '@/components/Pagination'
+import { useDebouncedValue } from '@/lib/useDebounce'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -23,9 +25,10 @@ export function EventsPage() {
   const [searchParams] = useSearchParams()
   const [page, setPage] = useState(1)
   const [project, setProject] = useState('')
+  const debouncedProject = useDebouncedValue(project)
   const issueId = searchParams.get('issue_id') || undefined
   const { data, isLoading } = useQuery({
-    queryKey: ['events', page, project, issueId],
+    queryKey: ['events', page, debouncedProject, issueId],
     queryFn: async () => {
       const { data } = await getApi().get<{
         data: IssueEvent[]
@@ -34,7 +37,7 @@ export function EventsPage() {
         params: {
           page,
           page_size: PAGE_SIZE,
-          project: project || undefined,
+          project: debouncedProject || undefined,
           issue_id: issueId,
         },
       })
@@ -44,7 +47,7 @@ export function EventsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [project, issueId])
+  }, [debouncedProject, issueId])
 
   return (
     <div className="space-y-6">
@@ -144,32 +147,11 @@ export function EventsPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {data?.page_info.total ?? 0} total
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_previous_page}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {data?.page_info.current_page || 0} / {data?.page_info.total_pages || 0}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_next_page}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <PaginationControls
+        pageInfo={data?.page_info}
+        page={page}
+        onPageChange={setPage}
+      />
     </div>
   )
 }

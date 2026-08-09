@@ -24,7 +24,7 @@ type AlertRule struct {
 	Tag             string           `bun:"tag" json:"tag"`
 	Threshold       int              `bun:"threshold" json:"threshold"`
 	WindowMinutes   int              `bun:"window_minutes" json:"window_minutes"`
-	ThrottleWindow  int              `bun:"throttle_window,notnull,default:60" json:"throttle_window"`
+	ThrottleWindow  *int             `bun:"throttle_window,nullzero" json:"throttle_window"`
 	RecipientListID int64            `bun:"recipient_list_id,notnull" json:"recipient_list_id"`
 	RecipientList   *RecipientList   `bun:"rel:belongs-to,join:recipient_list_id=id" json:"recipient_list,omitempty"`
 	IsActive        bool             `bun:"is_active,notnull,default:true" json:"is_active"`
@@ -39,7 +39,7 @@ type CreateAlertRuleRequest struct {
 	Tag             string           `json:"tag"`
 	Threshold       int              `json:"threshold"`
 	WindowMinutes   int              `json:"window_minutes"`
-	ThrottleWindow  int              `json:"throttle_window" validate:"omitempty,min=1"`
+	ThrottleWindow  *int             `json:"throttle_window" validate:"omitempty,min=0"`
 	RecipientListID int64            `json:"recipient_list_id" validate:"required"`
 	IsActive        *bool            `json:"is_active"`
 }

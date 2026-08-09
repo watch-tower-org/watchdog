@@ -11,9 +11,8 @@ import (
 	"github.com/watch-tower-org/watchtower/backend/internal/cache"
 	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/pagination"
 )
-
-const defaultPageSize = 10
 
 type Controller struct {
 	db    *bun.DB
@@ -25,13 +24,7 @@ func NewController(db *bun.DB, cache *cache.MapCache[int64, model.AlertRule]) *C
 }
 
 func (c *Controller) List(ctx context.Context, req *model.ListAlertRulesRequest) ([]model.AlertRule, *model.PageInfo, error) {
-	page, pageSize := req.Page, req.PageSize
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = defaultPageSize
-	}
+	page, pageSize := pagination.Normalize(req.Page, req.PageSize)
 
 	q := c.db.NewSelect().Model((*model.AlertRule)(nil)).Relation("RecipientList")
 	countQ := c.db.NewSelect().Model((*model.AlertRule)(nil))
@@ -166,9 +159,9 @@ func (c *Controller) Update(ctx context.Context, id int64, req *model.UpdateAler
 	if req.WindowMinutes != nil {
 		rule.WindowMinutes = *req.WindowMinutes
 	}
-	if req.ThrottleWindow != nil {
-		rule.ThrottleWindow = *req.ThrottleWindow
-	}
+	// ThrottleWindow is always taken from the request (nil clears back to the
+	// global setting); the form always sends the full value.
+	rule.ThrottleWindow = req.ThrottleWindow
 	if req.RecipientListID != nil {
 		exists, err := c.recipientListExists(ctx, *req.RecipientListID)
 		if err != nil {

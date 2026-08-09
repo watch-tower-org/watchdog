@@ -12,12 +12,10 @@ import (
 
 	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/pagination"
 )
 
-const (
-	defaultPageSize = 10
-	keyPrefix       = "wt_"
-)
+const keyPrefix = "wt_"
 
 type Controller struct {
 	db *bun.DB
@@ -51,12 +49,7 @@ func MaskKey(key string) string {
 }
 
 func (c *Controller) List(ctx context.Context, page, pageSize int) ([]model.ApiKey, *model.PageInfo, error) {
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = defaultPageSize
-	}
+	page, pageSize = pagination.Normalize(page, pageSize)
 
 	q := c.db.NewSelect().Model((*model.ApiKey)(nil))
 	countQ := c.db.NewSelect().Model((*model.ApiKey)(nil))

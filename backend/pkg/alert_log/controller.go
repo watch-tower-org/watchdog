@@ -9,9 +9,8 @@ import (
 
 	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/pagination"
 )
-
-const defaultPageSize = 10
 
 type Controller struct {
 	db *bun.DB
@@ -22,13 +21,7 @@ func NewController(db *bun.DB) *Controller {
 }
 
 func (c *Controller) List(ctx context.Context, req *model.ListAlertLogsRequest) ([]model.AlertLog, *model.PageInfo, error) {
-	page, pageSize := req.Page, req.PageSize
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 {
-		pageSize = defaultPageSize
-	}
+	page, pageSize := pagination.Normalize(req.Page, req.PageSize)
 
 	q := c.db.NewSelect().Model((*model.AlertLog)(nil)).Relation("Issue").Relation("Rule")
 	countQ := c.db.NewSelect().Model((*model.AlertLog)(nil))

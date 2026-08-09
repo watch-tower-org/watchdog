@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { AlertTriangle, ChevronDown, Loader2 } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Loader2, Merge } from 'lucide-react'
 import { getApi, getErrorMessage } from '@/lib/api'
 import type { Issue, IssueStatus, PageInfo } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -21,6 +22,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Table,
   TableBody,
   TableCell,
@@ -30,6 +39,8 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { PaginationControls } from '@/components/Pagination'
+import { useDebouncedValue } from '@/lib/useDebounce'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
@@ -50,9 +61,15 @@ export function IssuesPage() {
   const [search, setSearch] = useState('')
   const [project, setProject] = useState('')
   const [status, setStatus] = useState('')
+  const [selected, setSelected] = useState<number[]>([])
+  const [mergeOpen, setMergeOpen] = useState(false)
+  const [mergeTarget, setMergeTarget] = useState<number | null>(null)
+
+  const debouncedSearch = useDebouncedValue(search)
+  const debouncedProject = useDebouncedValue(project)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['issues', page, search, project, status],
+    queryKey: ['issues', page, debouncedSearch, debouncedProject, status],
     queryFn: async () => {
       const { data } = await getApi().get<{ data: Issue[]; page_info: PageInfo }>(
         '/issues',
@@ -60,8 +77,8 @@ export function IssuesPage() {
           params: {
             page,
             page_size: PAGE_SIZE,
-            search: search || undefined,
-            project: project || undefined,
+            search: debouncedSearch || undefined,
+            project: debouncedProject || undefined,
             status: status || undefined,
           },
         },
@@ -72,7 +89,52 @@ export function IssuesPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, project, status])
+  }, [debouncedSearch, debouncedProject, status])
+
+  useEffect(() => {
+    setSelected([])
+  }, [page, debouncedSearch, debouncedProject, status])
+
+  const pageIds = (data?.data ?? []).map((i) => i.id)
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.includes(id))
+
+  const toggleSelect = (id: number) => {
+    setSelected((sel) =>
+      sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id],
+    )
+  }
+
+  const toggleSelectPage = () => {
+    if (allPageSelected) {
+      setSelected((sel) => sel.filter((id) => !pageIds.includes(id)))
+    } else {
+      setSelected((sel) => [...new Set([...sel, ...pageIds])])
+    }
+  }
+
+  const selectedIssues = (data?.data ?? []).filter((i) => selected.includes(i.id))
+  const openMerge = () => {
+    setMergeTarget(null)
+    setMergeOpen(true)
+  }
+
+  const mergeMutation = useMutation({
+    mutationFn: async (targetId: number) => {
+      const sourceIds = selected.filter((id) => id !== targetId)
+      const { data } = await getApi().post<{ data: Issue }>('/issues/merge', {
+        source_ids: sourceIds,
+        target_id: targetId,
+      })
+      return data.data
+    },
+    onSuccess: () => {
+      toast.success('Issues merged')
+      setSelected([])
+      setMergeOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['issues'] })
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  })
 
   return (
     <div className="space-y-6">
@@ -107,6 +169,12 @@ export function IssuesPage() {
             <SelectItem value="muted">Muted</SelectItem>
           </SelectContent>
         </Select>
+        {selected.length >= 2 && (
+          <Button size="sm" onClick={openMerge} className="ml-auto">
+            <Merge className="mr-2 h-4 w-4" />
+            Merge {selected.length} issues
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -114,6 +182,15 @@ export function IssuesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all on page"
+                    checked={allPageSelected}
+                    onChange={toggleSelectPage}
+                    className="h-4 w-4"
+                  />
+                </TableHead>
                 <TableHead>ID</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Project</TableHead>
@@ -126,14 +203,14 @@ export function IssuesPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center">
+                  <TableCell colSpan={8} className="py-10 text-center">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : (data?.data ?? []).length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="py-10 text-center text-muted-foreground"
                   >
                     <AlertTriangle className="mx-auto mb-2 h-8 w-8" />
@@ -143,11 +220,21 @@ export function IssuesPage() {
               ) : (
                 (data?.data ?? []).map((issue) => (
                   <TableRow key={issue.id}>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select issue ${issue.id}`}
+                        checked={selected.includes(issue.id)}
+                        onChange={() => toggleSelect(issue.id)}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{issue.id}</TableCell>
                     <TableCell className="max-w-md">
                       <Link
                         to={`/issues/${issue.id}`}
                         className="font-medium hover:underline"
+                        title={issue.fingerprint}
                       >
                         {issue.title}
                       </Link>
@@ -178,32 +265,63 @@ export function IssuesPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {data?.page_info.total ?? 0} total
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_previous_page}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {data?.page_info.current_page || 0} / {data?.page_info.total_pages || 0}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_next_page}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <PaginationControls
+        pageInfo={data?.page_info}
+        page={page}
+        onPageChange={setPage}
+      />
+
+      <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Merge {selected.length} issues</DialogTitle>
+            <DialogDescription>
+              All events from the other selected issues move into the target
+              issue, which then absorbs their counts and timestamps. The
+              sources are deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Keep as the merged issue</Label>
+            <div className="space-y-1.5">
+              {selectedIssues.map((issue) => (
+                <label
+                  key={issue.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm"
+                >
+                  <input
+                    type="radio"
+                    name="merge-target"
+                    checked={mergeTarget === issue.id}
+                    onChange={() => setMergeTarget(issue.id)}
+                    className="h-4 w-4"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{issue.title}</span>
+                  <Badge variant="outline">#{issue.id}</Badge>
+                </label>
+              ))}
+              {selected.length > selectedIssues.length && (
+                <p className="text-xs text-muted-foreground">
+                  {selected.length - selectedIssues.length} more selected on other pages
+                  will be merged into the target.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMergeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => mergeTarget && mergeMutation.mutate(mergeTarget)}
+              disabled={!mergeTarget || mergeMutation.isPending}
+            >
+              {mergeMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Merge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

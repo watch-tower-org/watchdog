@@ -70,7 +70,7 @@ func (app *Application) initControllers(db *database.Database) {
 	alertRulesCache := cache.NewMap[int64, model.AlertRule]()
 	recipientListsCache := cache.NewMap[int64, model.RecipientList]()
 
-	app.Notifier = notifier.NewNotifier(db.DB, 0, &notifier.Caches{
+	app.Notifier = notifier.NewNotifier(db.DB, app.Config.Notifier.Workers, &notifier.Caches{
 		AlertSettings: alertSettingsCache,
 		EmailSettings: emailSettingsCache,
 		Rules:         alertRulesCache,
@@ -83,7 +83,7 @@ func (app *Application) initControllers(db *database.Database) {
 	app.RecipientListsC = recipient_lists.NewController(db.DB, recipientListsCache)
 	app.AuthC = auth.NewController(db.DB, &app.Config.JWT)
 	app.DashboardC = dashboard.NewController(db.DB)
-	app.IngestionC = ingestion.NewController(db.DB, app.Notifier)
+	app.IngestionC = ingestion.NewController(db.DB, app.Notifier, ingestion.ParseFingerprintMode(app.Config.Ingestion.FingerprintMode))
 	app.IssuesC = issues.NewController(db.DB)
 	app.EventsC = events.NewController(db.DB)
 	app.AlertRulesC = alert_rules.NewController(db.DB, alertRulesCache)

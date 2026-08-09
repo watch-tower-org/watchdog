@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { BellRing, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { getApi, getErrorMessage } from '@/lib/api'
-import type { AlertRule, AlertTriggerType, PageInfo, RecipientList } from '@/lib/types'
+import type { AlertRule, AlertSettings, AlertTriggerType, PageInfo, RecipientList } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { PaginationControls } from '@/components/Pagination'
 
 const PAGE_SIZE = 10
 
@@ -66,6 +67,16 @@ export function AlertRulesPage() {
         page_info: PageInfo
       }>('/alert-rules', { params: { page, page_size: PAGE_SIZE } })
       return data
+    },
+  })
+
+  const { data: alertSettings } = useQuery({
+    queryKey: ['alert-settings'],
+    queryFn: async () => {
+      const { data } = await getApi().get<{ data: AlertSettings }>(
+        '/settings/alert',
+      )
+      return data.data
     },
   })
 
@@ -164,7 +175,9 @@ export function AlertRulesPage() {
                       {rule.recipient_list?.name ?? `#${rule.recipient_list_id}`}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {rule.throttle_window || 'global'} min
+                      {rule.throttle_window
+                        ? `${rule.throttle_window} min`
+                        : `global (${alertSettings?.throttle_window ?? '…'} min)`}
                     </TableCell>
                     <TableCell>
                       {rule.is_active ? (
@@ -203,32 +216,11 @@ export function AlertRulesPage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {data?.page_info.total ?? 0} total
-        </span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_previous_page}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {data?.page_info.current_page || 0} / {data?.page_info.total_pages || 0}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data?.page_info.has_next_page}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      <PaginationControls
+        pageInfo={data?.page_info}
+        page={page}
+        onPageChange={setPage}
+      />
 
       <RuleDialog
         open={dialogOpen}
@@ -322,7 +314,7 @@ function RuleDialog({ open, onOpenChange, editing, onSaved }: RuleDialogProps) {
         tag: tag.trim() || undefined,
         threshold: triggerType === 'spike' ? Number(threshold) || 0 : 0,
         window_minutes: triggerType === 'spike' ? Number(windowMinutes) || 0 : 0,
-        throttle_window: throttleWindow ? Number(throttleWindow) : undefined,
+        throttle_window: throttleWindow ? Number(throttleWindow) : null,
         recipient_list_id: Number(recipientListId),
         is_active: isActive,
       }

@@ -55,6 +55,12 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		return err
 	}
 
+	// Index supporting spike window COUNT queries (per rule per event).
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events (timestamp)`); err != nil {
+		logger.Error().Msgf("failed to create events timestamp index: %v", err)
+		return err
+	}
+
 	// Index supporting issue listing filtered by project/status.
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_issues_project_status ON issues (project, status)`); err != nil {
 		logger.Error().Msgf("failed to create issues project/status index: %v", err)
@@ -76,6 +82,18 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 	// Add the message column to events if it doesn't exist yet (older installs).
 	if _, err := db.ExecContext(ctx, `ALTER TABLE events ADD COLUMN IF NOT EXISTS message text`); err != nil {
 		logger.Error().Msgf("failed to add message column to events: %v", err)
+		return err
+	}
+
+	// throttle_window on alert_rules becomes nullable: NULL (or legacy 0) means
+	// "use the global throttle setting". Older installs created the column
+	// NOT NULL DEFAULT 60, so relax it and normalize stored 0s.
+	if _, err := db.ExecContext(ctx, `ALTER TABLE alert_rules ALTER COLUMN throttle_window DROP NOT NULL`); err != nil {
+		logger.Error().Msgf("failed to drop NOT NULL on alert_rules.throttle_window: %v", err)
+		return err
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE alert_rules SET throttle_window = NULL WHERE throttle_window = 0`); err != nil {
+		logger.Error().Msgf("failed to normalize alert_rules.throttle_window: %v", err)
 		return err
 	}
 

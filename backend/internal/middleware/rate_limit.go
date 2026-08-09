@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"time"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/ulule/limiter/v3"
@@ -34,9 +34,9 @@ func RateLimit(cfg *config.RateLimitConfig) gin.HandlerFunc {
 			return
 		}
 
-		next := time.Until(time.Unix(limitCtx.Reset, 0))
-		c.Header("X-RateLimit-Limit", c.GetHeader("X-RateLimit-Limit"))
-		c.Header("X-RateLimit-Reset", next.String())
+		c.Header("X-RateLimit-Limit", strconv.Itoa(cfg.Requests))
+		c.Header("X-RateLimit-Remaining", strconv.FormatInt(limitCtx.Remaining, 10))
+		c.Header("X-RateLimit-Reset", strconv.FormatInt(limitCtx.Reset, 10))
 
 		c.Next()
 	}
