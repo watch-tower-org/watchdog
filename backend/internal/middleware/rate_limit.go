@@ -7,8 +7,8 @@ import (
 	"github.com/ulule/limiter/v3"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
-	"github.com/watch-tower-org/watchdog/backend/internal/res"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/res"
 )
 
 func RateLimit(cfg *config.RateLimitConfig) gin.HandlerFunc {

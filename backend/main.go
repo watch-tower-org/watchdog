@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
-	"github.com/watch-tower-org/watchdog/backend/internal/database"
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/pkg"
-	"github.com/watch-tower-org/watchdog/backend/router"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/database"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/pkg"
+	"github.com/watch-tower-org/watchtower/backend/router"
 )
 
 func main() {

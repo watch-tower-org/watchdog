@@ -12,9 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
-	"github.com/watch-tower-org/watchdog/backend/internal/res"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/res"
 )
 
 const (

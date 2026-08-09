@@ -6,7 +6,7 @@
 // Call Init once at startup to configure a process-wide client, then Report
 // errors as they happen. On shutdown, Close flushes any buffered events.
 //
-//	import wt "github.com/watch-tower-org/watchdog/sdk/go"
+//	import wt "github.com/watch-tower-org/watchtower/sdk/go"
 //
 //	func main() {
 //		if err := wt.Init(wt.Config{

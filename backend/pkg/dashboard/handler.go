@@ -3,7 +3,7 @@ package dashboard
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/res"
+	"github.com/watch-tower-org/watchtower/backend/internal/res"
 )
 
 type Handler struct {

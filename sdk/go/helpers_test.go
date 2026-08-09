@@ -45,7 +45,7 @@ func newCapture(t *testing.T, key string) *capture {
 		// passes against this server.
 		if r.URL.Path == versionBasePath {
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchdog","version":"test"}}`))
+			_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchtower","version":"test"}}`))
 			return
 		}
 

@@ -10,7 +10,7 @@ import (
 
 // sdkPackagePrefix identifies frames that belong to this SDK so they can be
 // trimmed from captured stacks (the first non-SDK frame is the real caller).
-const sdkPackagePrefix = "github.com/watch-tower-org/watchdog/sdk/go"
+const sdkPackagePrefix = "github.com/watch-tower-org/watchtower/sdk/go"
 
 // captureStack returns a formatted stack trace beginning at the first caller
 // outside this SDK. Each frame is formatted as "funcname\n\t/file.go:line",

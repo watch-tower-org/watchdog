@@ -9,8 +9,8 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 )
 
 type Database struct {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 )
 
 func Logger() gin.HandlerFunc {

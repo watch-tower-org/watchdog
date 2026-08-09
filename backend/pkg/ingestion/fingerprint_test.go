@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 const sampleTrace = `panic: database connection pool exhausted

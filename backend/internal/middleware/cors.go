@@ -6,7 +6,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
 )
 
 func CORS(cfg *config.CORSConfig) gin.HandlerFunc {

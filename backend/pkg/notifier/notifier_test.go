@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 func TestMatchesRule(t *testing.T) {

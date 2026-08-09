@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/rs/zerolog/pkgerrors"
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 

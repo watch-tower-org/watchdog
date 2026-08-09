@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	wt "github.com/watch-tower-org/watchdog/sdk/go"
+	wt "github.com/watch-tower-org/watchtower/sdk/go"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 // stubIngester records what sink.Send hands over.

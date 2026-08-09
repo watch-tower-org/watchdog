@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 const maxFrames = 10

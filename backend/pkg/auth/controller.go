@@ -12,9 +12,9 @@ import (
 	"github.com/uptrace/bun"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 var (

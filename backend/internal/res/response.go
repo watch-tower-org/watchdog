@@ -3,7 +3,7 @@ package res
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 type SuccessResponse struct {

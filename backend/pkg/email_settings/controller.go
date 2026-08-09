@@ -7,11 +7,11 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/cache"
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/internal/mailer"
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
-	"github.com/watch-tower-org/watchdog/backend/internal/validator"
+	"github.com/watch-tower-org/watchtower/backend/internal/cache"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/mailer"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/validator"
 )
 
 type Controller struct {

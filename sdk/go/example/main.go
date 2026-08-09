@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	wt "github.com/watch-tower-org/watchdog/sdk/go"
+	wt "github.com/watch-tower-org/watchtower/sdk/go"
 )
 
 func main() {

@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/internal/res"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/res"
 )
 
 // RecoverFn is called with the recovered panic value and request context. It

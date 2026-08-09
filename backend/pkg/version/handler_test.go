@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	v "github.com/watch-tower-org/watchdog/backend/internal/version"
+	v "github.com/watch-tower-org/watchtower/backend/internal/version"
 )
 
 func TestVersionHandler(t *testing.T) {
@@ -38,8 +38,8 @@ func TestVersionHandler(t *testing.T) {
 	if !body.Success {
 		t.Error("success = false, want true")
 	}
-	if body.Data.Product != "watchdog" {
-		t.Errorf("product = %q, want watchdog", body.Data.Product)
+	if body.Data.Product != "watchtower" {
+		t.Errorf("product = %q, want watchtower", body.Data.Product)
 	}
 	if body.Data.Version != v.Version {
 		t.Errorf("version = %q, want %q", body.Data.Version, v.Version)

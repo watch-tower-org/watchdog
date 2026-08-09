@@ -11,10 +11,10 @@ import (
 
 func TestCheckVersion(t *testing.T) {
 	cases := []struct {
-		name       string
-		handler    http.HandlerFunc
-		key        string
-		wantErr    bool
+		name        string
+		handler     http.HandlerFunc
+		key         string
+		wantErr     bool
 		errContains string
 	}{
 		{
@@ -24,7 +24,7 @@ func TestCheckVersion(t *testing.T) {
 					t.Errorf("X-Api-Key = %q, want k", got)
 				}
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchdog","version":"v0.1.4"}}`))
+				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchtower","version":"v0.1.4"}}`))
 			},
 			key: "k",
 		},
@@ -34,8 +34,8 @@ func TestCheckVersion(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"success":false,"code":500,"message":"boom"}`))
 			},
-			key:        "k",
-			wantErr:    true,
+			key:         "k",
+			wantErr:     true,
 			errContains: "not a WatchTower instance",
 		},
 		{
@@ -43,15 +43,15 @@ func TestCheckVersion(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusUnauthorized)
 			},
-			key:        "bad",
-			wantErr:    true,
+			key:         "bad",
+			wantErr:     true,
 			errContains: "invalid or revoked",
 		},
 		{
-			name:       "unreachable",
-			handler:    nil, // replaced with a closed server below
-			key:        "k",
-			wantErr:    true,
+			name:        "unreachable",
+			handler:     nil, // replaced with a closed server below
+			key:         "k",
+			wantErr:     true,
 			errContains: "version check failed",
 		},
 		{
@@ -60,8 +60,8 @@ func TestCheckVersion(t *testing.T) {
 				w.Header().Set("Content-Type", "text/plain")
 				_, _ = w.Write([]byte("<html>nope</html>"))
 			},
-			key:        "k",
-			wantErr:    true,
+			key:         "k",
+			wantErr:     true,
 			errContains: "not a WatchTower instance",
 		},
 		{
@@ -70,15 +70,15 @@ func TestCheckVersion(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"sentry","version":"1.0.0"}}`))
 			},
-			key:        "k",
-			wantErr:    true,
+			key:         "k",
+			wantErr:     true,
 			errContains: "not a WatchTower instance",
 		},
 		{
 			name: "empty version accepted",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"watchdog","version":""}}`))
+				_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"ok","data":{"product":"watchtower","version":""}}`))
 			},
 			key: "k",
 		},
@@ -87,8 +87,8 @@ func TestCheckVersion(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
-			key:        "k",
-			wantErr:    true,
+			key:         "k",
+			wantErr:     true,
 			errContains: "server returned 500",
 		},
 	}
@@ -129,7 +129,7 @@ func TestCheckVersion(t *testing.T) {
 func TestCheckVersionReturnsInfo(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchdog","version":"v0.1.4"}}`))
+		_, _ = w.Write([]byte(`{"success":true,"code":200,"message":"version retrieved","data":{"product":"watchtower","version":"v0.1.4"}}`))
 	}))
 	defer srv.Close()
 
@@ -137,8 +137,8 @@ func TestCheckVersionReturnsInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CheckVersion: %v", err)
 	}
-	if info.Product != "watchdog" {
-		t.Errorf("product = %q, want watchdog", info.Product)
+	if info.Product != "watchtower" {
+		t.Errorf("product = %q, want watchtower", info.Product)
 	}
 	if info.Version != "v0.1.4" {
 		t.Errorf("version = %q, want v0.1.4", info.Version)

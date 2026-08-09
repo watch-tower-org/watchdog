@@ -8,9 +8,9 @@ import (
 
 	"github.com/uptrace/bun"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
-	"github.com/watch-tower-org/watchdog/backend/pkg/notifier"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/pkg/notifier"
 )
 
 type Controller struct {

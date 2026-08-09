@@ -151,9 +151,9 @@ func TestCapturePanicStackTrimsSDKFrames(t *testing.T) {
 	raw := `goroutine 7 [running]:
 runtime/debug.Stack()
 	/usr/local/go/src/runtime/debug/stack.go:26 +0x64
-github.com/watch-tower-org/watchdog/sdk/go.capturePanicStack()
+github.com/watch-tower-org/watchtower/sdk/go.capturePanicStack()
 	/home/wt/sdk/go/capture.go:58 +0x3c
-github.com/watch-tower-org/watchdog/sdk/go.(*Client).reportPanic(0x1)
+github.com/watch-tower-org/watchtower/sdk/go.(*Client).reportPanic(0x1)
 	/home/wt/sdk/go/watchtower.go:0 +0x0
 main.handler.func1()
 	/app/main.go:42 +0x1a
@@ -161,7 +161,7 @@ net/http.HandlerFunc.ServeHTTP()
 	/usr/local/go/src/net/http/server.go:2141 +0x29
 `
 	got := trimPanicStack(raw)
-	if strings.Contains(got, "watchdog/sdk/go") {
+	if strings.Contains(got, "watchtower/sdk/go") {
 		t.Errorf("SDK frames not trimmed:\n%s", got)
 	}
 	if strings.Contains(got, "debug.Stack") {

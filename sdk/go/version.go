@@ -12,7 +12,7 @@ import (
 const versionBasePath = "/api/watchtower/v1/version"
 
 // expectedProduct identifies the WatchTower backend in version responses.
-const expectedProduct = "watchdog"
+const expectedProduct = "watchtower"
 
 // VersionInfo describes a WatchTower backend instance.
 type VersionInfo struct {

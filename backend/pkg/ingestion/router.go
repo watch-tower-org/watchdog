@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/uptrace/bun"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/middleware"
+	"github.com/watch-tower-org/watchtower/backend/internal/middleware"
 )
 
 func Router(r *gin.RouterGroup, controller *Controller, db *bun.DB) {

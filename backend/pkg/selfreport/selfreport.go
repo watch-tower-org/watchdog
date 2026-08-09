@@ -22,11 +22,11 @@ import (
 	"sync/atomic"
 
 	"github.com/rs/zerolog"
-	wt "github.com/watch-tower-org/watchdog/sdk/go"
+	wt "github.com/watch-tower-org/watchtower/sdk/go"
 
-	"github.com/watch-tower-org/watchdog/backend/internal/config"
-	"github.com/watch-tower-org/watchdog/backend/internal/logger"
-	"github.com/watch-tower-org/watchdog/backend/internal/model"
+	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 // ingester is the subset of the ingestion controller used to store
