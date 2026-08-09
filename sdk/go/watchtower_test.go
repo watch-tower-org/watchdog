@@ -2,6 +2,8 @@ package wt
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -141,18 +143,20 @@ func TestNewClientValidation(t *testing.T) {
 }
 
 func TestNewClientRejectsMalformedBaseURL(t *testing.T) {
+	c := newCapture(t, "k")
+	valid := c.srv.URL
+
 	cases := []struct {
 		name    string
 		baseURL string
 		wantErr bool
 	}{
-		{name: "valid http", baseURL: "http://localhost:8080", wantErr: false},
-		{name: "valid https", baseURL: "https://watchtower.example.com", wantErr: false},
+		{name: "valid http", baseURL: valid, wantErr: false},
+		{name: "whitespace padded", baseURL: "  " + valid + "  ", wantErr: false},
 		{name: "missing scheme", baseURL: "localhost:8080", wantErr: true},
 		{name: "wrong scheme", baseURL: "ftp://watchtower.example.com", wantErr: true},
 		{name: "no host", baseURL: "http://", wantErr: true},
 		{name: "unparsable", baseURL: "://bad", wantErr: true},
-		{name: "whitespace padded", baseURL: "  http://localhost:8080  ", wantErr: false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -176,6 +180,78 @@ func TestNewClientRejectsMalformedBaseURL(t *testing.T) {
 			cl.Close()
 		})
 	}
+}
+
+func TestNewClientVerifiesBaseURL(t *testing.T) {
+	t.Run("unreachable", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		url := srv.URL
+		srv.Close()
+
+		cfg := DefaultConfig()
+		cfg.BaseURL = url
+		cfg.APIKey = "k"
+		cfg.Project = "p"
+		if _, err := NewClient(cfg); err == nil {
+			t.Fatal("expected error for unreachable BaseURL")
+		}
+	})
+
+	t.Run("wrong product", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"product":"not-watchdog","version":"1.0.0"}`))
+		}))
+		defer srv.Close()
+
+		cfg := DefaultConfig()
+		cfg.BaseURL = srv.URL
+		cfg.APIKey = "k"
+		cfg.Project = "p"
+		_, err := NewClient(cfg)
+		if err == nil {
+			t.Fatal("expected error for non-WatchTower product")
+		}
+		if !strings.Contains(err.Error(), "not a WatchTower instance") {
+			t.Errorf("error = %v, want 'not a WatchTower instance'", err)
+		}
+	})
+
+	t.Run("unauthorized key", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized)
+		}))
+		defer srv.Close()
+
+		cfg := DefaultConfig()
+		cfg.BaseURL = srv.URL
+		cfg.APIKey = "bad-key"
+		cfg.Project = "p"
+		_, err := NewClient(cfg)
+		if err == nil {
+			t.Fatal("expected error for unauthorized key")
+		}
+		if !strings.Contains(err.Error(), "invalid or revoked") {
+			t.Errorf("error = %v, want 'invalid or revoked API key'", err)
+		}
+	})
+
+	t.Run("verify disabled", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		url := srv.URL
+		srv.Close()
+
+		cfg := DefaultConfig()
+		cfg.BaseURL = url
+		cfg.APIKey = "k"
+		cfg.Project = "p"
+		cfg.VerifyBaseURL = false
+		cl, err := NewClient(cfg)
+		if err != nil {
+			t.Fatalf("VerifyBaseURL=false should skip the network check, got %v", err)
+		}
+		cl.Close()
+	})
 }
 
 func TestDisabledClientNoop(t *testing.T) {

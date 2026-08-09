@@ -41,6 +41,14 @@ func newCapture(t *testing.T, key string) *capture {
 	t.Helper()
 	c := &capture{}
 	c.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Serve the version endpoint so NewClient's init-time verification
+		// passes against this server.
+		if r.URL.Path == versionBasePath {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"product":"watchdog","version":"test"}`))
+			return
+		}
+
 		var evts []struct {
 			Message    string         `json:"message"`
 			ErrorType  string         `json:"error_type"`

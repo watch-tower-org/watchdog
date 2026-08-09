@@ -66,6 +66,11 @@ type Config struct {
 	Sender Sender
 	// Logger receives SDK diagnostics; defaults to stderr.
 	Logger *log.Logger
+	// VerifyBaseURL performs a live reachability and identity check against the
+	// configured BaseURL during NewClient (default true). It confirms the URL
+	// points to a WatchTower instance and that the API key is valid. Set to
+	// false to skip the check, e.g. when the instance is only reachable later.
+	VerifyBaseURL bool
 	// Disable turns the SDK into a no-op (local development).
 	Disable bool
 }
@@ -79,8 +84,12 @@ func DefaultConfig() Config {
 		MaxQueueSize:  5000,
 		HTTPTimeout:   10 * time.Second,
 		MaxRetries:    2,
+		VerifyBaseURL: true,
 	}
 }
+
+// verifyTimeout bounds the live base-URL check performed during NewClient.
+const verifyTimeout = 5 * time.Second
 
 // ConfigFromEnv builds a Config from WATCHTOWER_* environment variables,
 // falling back to DefaultConfig for unset values.
@@ -99,8 +108,11 @@ func ConfigFromEnv() Config {
 	return cfg
 }
 
-// NewClient builds and starts a client. The returned client must be closed via
-// Close to flush buffered events on shutdown.
+// NewClient builds and starts a client. Unless Config.VerifyBaseURL is false,
+// the configured BaseURL is checked live (via the backend's /version endpoint)
+// to confirm it points to a WatchTower instance and that the API key is valid;
+// the check fails fast with an error otherwise. The returned client must be
+// closed via Close to flush buffered events on shutdown.
 func NewClient(cfg Config) (*Client, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = log.New(os.Stderr, "", log.LstdFlags)
@@ -117,8 +129,11 @@ func NewClient(cfg Config) (*Client, error) {
 		return c, nil
 	}
 
+	// Normalize BaseURL so subsequent checks and requests are consistent.
+	cfg.BaseURL = strings.TrimSpace(cfg.BaseURL)
+
 	if cfg.Sender == nil {
-		if strings.TrimSpace(cfg.BaseURL) == "" {
+		if cfg.BaseURL == "" {
 			return nil, errors.New("watchtower: BaseURL is required (or provide a Sender)")
 		}
 		if err := validateBaseURL(cfg.BaseURL); err != nil {
@@ -130,6 +145,18 @@ func NewClient(cfg Config) (*Client, error) {
 	}
 	if strings.TrimSpace(cfg.Project) == "" {
 		return nil, errors.New("watchtower: Project is required")
+	}
+
+	// Live verification: confirm the URL points to a WatchTower instance and
+	// the API key is valid. Skipped for in-process Senders or when the caller
+	// opts out via VerifyBaseURL.
+	if cfg.VerifyBaseURL && cfg.Sender == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), verifyTimeout)
+		if _, err := CheckVersion(ctx, cfg.BaseURL, cfg.APIKey); err != nil {
+			cancel()
+			return nil, err
+		}
+		cancel()
 	}
 
 	if cfg.SampleRate < 0 {

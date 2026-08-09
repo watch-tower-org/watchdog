@@ -39,6 +39,15 @@
 // batches are dropped and logged to the configured Logger; the SDK never
 // retries and never blocks your application.
 //
+// # Base-URL verification
+//
+// By default NewClient runs a live check against BaseURL's /version endpoint
+// before starting. This fails fast with an error if the URL is unreachable,
+// does not point to a WatchTower instance, or the API key is invalid or
+// revoked. Set Config.VerifyBaseURL to false to skip the check (e.g. when the
+// instance is only reachable later). The check is never performed when a custom
+// Config.Sender is used.
+//
 // By default events are posted over HTTP to BaseURL using APIKey. Set
 // Config.Sender to a custom Sender to override delivery entirely — e.g. to
 // hand events to an in-process pipeline — in which case BaseURL and APIKey are
