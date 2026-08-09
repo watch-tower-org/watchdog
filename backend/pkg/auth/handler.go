@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/watch-tower-org/watchtower/backend/internal/config"
+	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 	"github.com/watch-tower-org/watchtower/backend/internal/middleware"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
 	"github.com/watch-tower-org/watchtower/backend/internal/res"
@@ -66,19 +67,22 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	claims, err := middleware.ValidateJWT(refreshToken, h.cfg.RefreshSecretKey)
+	// Rotation happens server-side: the controller validates the session,
+	// revokes this token, and returns a fresh access + refresh pair.
+	u, err := h.controller.RefreshToken(c.Request.Context(), refreshToken)
 	if err != nil {
 		res.Unauthorized(c, "Invalid refresh token")
 		return
 	}
 
-	u, err := h.controller.RefreshToken(c.Request.Context(), claims.Username)
-	if err != nil {
-		res.Unauthorized(c, "Invalid refresh token")
-		return
-	}
-
-	middleware.RefreshAccessCookie(c, u.AccessToken, intSeconds(h.cfg.ExpirationDuration), h.cookieSecure)
+	middleware.SetAuthCookies(
+		c,
+		u.AccessToken,
+		u.RefreshToken,
+		intSeconds(h.cfg.ExpirationDuration),
+		intSeconds(h.cfg.RefreshExpirationDuration),
+		h.cookieSecure,
+	)
 
 	res.Ok(c, "Token refreshed successfully", u)
 }
@@ -87,6 +91,16 @@ func (h *Handler) Logout(c *gin.Context) {
 	if _, exists := c.Get("username"); !exists {
 		res.Unauthorized(c, "Unauthorized")
 		return
+	}
+
+	// Revoke the refresh session server-side so a stolen refresh cookie stops
+	// working even after the browser cookies are cleared. Best-effort: logout
+	// still succeeds if the session is already gone.
+	refreshToken, _ := c.Cookie(middleware.RefreshTokenCookie)
+	if refreshToken != "" {
+		if err := h.controller.RevokeSession(c.Request.Context(), refreshToken); err != nil {
+			logger.Ctx(c.Request.Context()).Warn().Msgf("logout: failed to revoke refresh session: %v", err)
+		}
 	}
 
 	middleware.ClearAuthCookies(c)

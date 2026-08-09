@@ -138,3 +138,23 @@ export interface AlertLog {
   issue: Issue | null
   rule: AlertRule | null
 }
+
+export interface TrendBucket {
+  ts: string
+  new_issues: number
+  events: number
+  alerts: number
+}
+
+export interface TrendItem {
+  name: string
+  count: number
+}
+
+export interface DashboardTrends {
+  range: string
+  buckets: TrendBucket[]
+  issues_by_status: TrendItem[]
+  top_projects: TrendItem[]
+  top_tags: TrendItem[]
+}

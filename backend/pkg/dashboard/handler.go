@@ -23,3 +23,14 @@ func (h *Handler) Summary(c *gin.Context) {
 
 	res.Ok(c, "dashboard summary retrieved successfully", summary)
 }
+
+func (h *Handler) Trends(c *gin.Context) {
+	rangeKey := c.DefaultQuery("range", "7d")
+	trends, err := h.controller.GetTrends(c.Request.Context(), rangeKey)
+	if err != nil {
+		res.BadRequest(c, err.Error())
+		return
+	}
+
+	res.Ok(c, "dashboard trends retrieved successfully", trends)
+}

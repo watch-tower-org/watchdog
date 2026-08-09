@@ -105,6 +105,7 @@ backend, or the container env under Docker).
 | `GIN_MODE` | `release` | `debug` or `release` |
 | `TZ` | `UTC` | Server timezone |
 | `COOKIE_SECURE` | `false` | Set `true` when serving over HTTPS so auth cookies get the `Secure` flag |
+| `TRUSTED_PROXIES` | *(empty)* | Comma-separated proxy CIDRs trusted for `X-Forwarded-For`. Empty trusts no proxies, so spoofed forwarding headers are ignored and the direct remote IP is used (see rate limiting) |
 | `DB_HOST` | `localhost` | Postgres host |
 | `DB_PORT` | `5432` | Postgres port |
 | `DB_USER` | `postgres` | Postgres user |
@@ -278,7 +279,7 @@ are applied to all responses.
 | `/events` | `POST` (ingest) | SDK reporting — single object or array |
 | `/issues` | `GET` (list), `GET /:id`, `PUT /:id`, `POST /merge`, `POST /move-events` | Issue list/detail/status + merge/split |
 | `/events` | `GET` (list), `GET /:id` | Event history/detail |
-| `/dashboard` | `GET /summary` | Dashboard stats |
+| `/dashboard` | `GET /summary`, `GET /trends?range=24h|7d|30d` | Dashboard stats + time-series analytics |
 | `/alert-rules` | `GET`, `POST`, `GET /:id`, `PUT /:id`, `DELETE /:id` | Alert rule CRUD |
 | `/alerts` | `GET` (list), `GET /:id` | Alert history |
 | `/api-keys` | `GET`, `POST`, `GET /:id`, `PUT /:id`, `PUT /:id/revoke` | API key management |

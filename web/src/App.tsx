@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
@@ -6,7 +7,6 @@ import { RequireAuth, SetupGate } from '@/lib/guards'
 import { Shell } from '@/components/Shell'
 import { LoginPage } from '@/pages/LoginPage'
 import { SetupPage } from '@/pages/SetupPage'
-import { DashboardPage } from '@/pages/DashboardPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { RecipientListsPage } from '@/pages/RecipientListsPage'
 import { ApiKeysPage } from '@/pages/ApiKeysPage'
@@ -16,6 +16,11 @@ import { EventsPage } from '@/pages/EventsPage'
 import { AlertRulesPage } from '@/pages/AlertRulesPage'
 import { AlertsPage } from '@/pages/AlertsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
+
+// Dashboard pulls in recharts + framer-motion, so load it on demand.
+const DashboardPage = lazy(() =>
+  import('@/pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+)
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,7 +55,14 @@ export default function App() {
                 </RequireAuth>
               }
             >
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <Suspense fallback={<div className="p-6">Loading dashboard…</div>}>
+                    <DashboardPage />
+                  </Suspense>
+                }
+              />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/recipient-lists" element={<RecipientListsPage />} />
               <Route path="/api-keys" element={<ApiKeysPage />} />

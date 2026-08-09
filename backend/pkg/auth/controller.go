@@ -14,11 +14,13 @@ import (
 
 	"github.com/watch-tower-org/watchtower/backend/internal/config"
 	"github.com/watch-tower-org/watchtower/backend/internal/logger"
+	"github.com/watch-tower-org/watchtower/backend/internal/middleware"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
 )
 
 var (
 	ErrInvalidCredentials = errors.New("Invalid username or password")
+	ErrInvalidRefreshToken = errors.New("Invalid refresh token")
 )
 
 type Controller struct {
@@ -55,17 +57,17 @@ func (c *Controller) loadAdmin(ctx context.Context, username string) (*model.Adm
 	return &a, nil
 }
 
-func (c *Controller) generateToken(username string, key string, duration time.Duration) (string, error) {
+func (c *Controller) generateToken(username string, adminID int64, jti string, key string, duration time.Duration) (string, error) {
 	claims := &model.Claims{
-		Id:       1,
+		Id:       adminID,
 		Username: username,
 		Role:     "admin",
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        uuid.New().String(),
+			ID:        jti,
 			Issuer:    "watchtower",
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   fmt.Sprintf("%d", 1),
+			Subject:   fmt.Sprintf("%d", adminID),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -94,11 +96,27 @@ func (c *Controller) Login(ctx context.Context, req *model.LoginRequest) (*model
 		return nil, ErrInvalidCredentials
 	}
 
-	accessToken, err := c.generateToken(a.Username, c.cfg.SecretKey, c.cfg.ExpirationDuration)
+	// Opportunistically drop this admin's expired sessions so rotation and
+	// re-login don't accumulate rows forever.
+	c.purgeExpiredSessions(ctx, a.ID)
+
+	refreshJTI := uuid.New().String()
+	refreshExpiresAt := time.Now().Add(c.cfg.RefreshExpirationDuration)
+	session := &model.AuthSession{
+		JTI:       refreshJTI,
+		AdminID:   a.ID,
+		ExpiresAt: refreshExpiresAt,
+	}
+	if _, err := c.db.NewInsert().Model(session).Exec(ctx); err != nil {
+		logger.Ctx(ctx).Error().Msgf("auth: failed to persist refresh session for %q: %v", req.Username, err)
+		return nil, errors.New("An unexpected error occurred. Please try again.")
+	}
+
+	accessToken, err := c.generateToken(a.Username, a.ID, uuid.New().String(), c.cfg.SecretKey, c.cfg.ExpirationDuration)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := c.generateToken(a.Username, c.cfg.RefreshSecretKey, c.cfg.RefreshExpirationDuration)
+	refreshToken, err := c.generateToken(a.Username, a.ID, refreshJTI, c.cfg.RefreshSecretKey, c.cfg.RefreshExpirationDuration)
 	if err != nil {
 		return nil, err
 	}
@@ -110,6 +128,74 @@ func (c *Controller) Login(ctx context.Context, req *model.LoginRequest) (*model
 	}
 
 	return resp, nil
+}
+
+// createSession inserts a new session row and returns its JTI.
+func (c *Controller) createSession(ctx context.Context, adminID int64, expiresAt time.Time) (string, error) {
+	jti := uuid.New().String()
+	session := &model.AuthSession{
+		JTI:       jti,
+		AdminID:   adminID,
+		ExpiresAt: expiresAt,
+	}
+	if _, err := c.db.NewInsert().Model(session).Exec(ctx); err != nil {
+		return "", err
+	}
+	return jti, nil
+}
+
+// rotateSession revokes the given session row and creates its replacement,
+// returning the new JTI.
+func (c *Controller) rotateSession(ctx context.Context, session *model.AuthSession, expiresAt time.Time) (string, error) {
+	newJTI, err := c.createSession(ctx, session.AdminID, expiresAt)
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := c.db.NewUpdate().
+		Model((*model.AuthSession)(nil)).
+		Set("revoked_at = ?", time.Now()).
+		Set("replaced_by_jti = ?", newJTI).
+		Where("id = ?", session.ID).
+		Where("revoked_at IS NULL").
+		Exec(ctx); err != nil {
+		return "", err
+	}
+
+	return newJTI, nil
+}
+
+// purgeExpiredSessions deletes expired session rows for an admin so the table
+// doesn't grow unbounded. Best-effort; errors are logged and ignored.
+func (c *Controller) purgeExpiredSessions(ctx context.Context, adminID int64) {
+	if _, err := c.db.NewDelete().
+		Model((*model.AuthSession)(nil)).
+		Where("admin_id = ?", adminID).
+		Where("expires_at < ?", time.Now()).
+		Exec(ctx); err != nil {
+		logger.Ctx(ctx).Warn().Msgf("auth: failed to purge expired sessions for admin %d: %v", adminID, err)
+	}
+}
+
+// RevokeSession invalidates the refresh session backing a refresh token. Used
+// by logout so a stolen refresh cookie stops working server-side, not just in
+// the browser.
+func (c *Controller) RevokeSession(ctx context.Context, refreshJWT string) error {
+	claims, err := middleware.ValidateJWT(refreshJWT, c.cfg.RefreshSecretKey)
+	if err != nil {
+		return err
+	}
+	if claims.ID == "" {
+		return ErrInvalidRefreshToken
+	}
+
+	_, err = c.db.NewUpdate().
+		Model((*model.AuthSession)(nil)).
+		Set("revoked_at = ?", time.Now()).
+		Where("jti = ?", claims.ID).
+		Where("revoked_at IS NULL").
+		Exec(ctx)
+	return err
 }
 
 // EnsureAdmin creates the admin account from env-provided credentials on
@@ -170,14 +256,67 @@ func (c *Controller) EnsureAdmin(username, password string, reset bool) error {
 	return nil
 }
 
-func (c *Controller) RefreshToken(ctx context.Context, username string) (*model.RefreshTokenResponse, error) {
-	accessToken, err := c.generateToken(username, c.cfg.SecretKey, c.cfg.ExpirationDuration)
+// RefreshToken validates a refresh token against its server-side session,
+// rejects revoked/expired sessions and inactive admins, then rotates the
+// session (revoking the presented token) and issues fresh access + refresh
+// tokens.
+func (c *Controller) RefreshToken(ctx context.Context, refreshJWT string) (*model.RefreshTokenResponse, error) {
+	claims, err := middleware.ValidateJWT(refreshJWT, c.cfg.RefreshSecretKey)
+	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+	if claims.ID == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	var session model.AuthSession
+	err = c.db.NewSelect().
+		Model(&session).
+		Where("jti = ?", claims.ID).
+		Scan(ctx)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrInvalidRefreshToken
+		}
+		logger.Ctx(ctx).Error().Msgf("auth: failed to load session %q: %v", claims.ID, err)
+		return nil, errors.New("An unexpected error occurred. Please try again.")
+	}
+
+	now := time.Now()
+	if session.RevokedAt != nil || now.After(session.ExpiresAt) {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	// Re-load the admin so a deactivated account can't keep refreshing.
+	var admin model.Admin
+	err = c.db.NewSelect().
+		Model(&admin).
+		Where("id = ?", session.AdminID).
+		Where("is_active = ?", true).
+		Scan(ctx)
+	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	refreshExpiresAt := now.Add(c.cfg.RefreshExpirationDuration)
+	newJTI, err := c.rotateSession(ctx, &session, refreshExpiresAt)
+	if err != nil {
+		logger.Ctx(ctx).Error().Msgf("auth: failed to rotate session %q: %v", claims.ID, err)
+		return nil, errors.New("An unexpected error occurred. Please try again.")
+	}
+
+	accessToken, err := c.generateToken(admin.Username, admin.ID, uuid.New().String(), c.cfg.SecretKey, c.cfg.ExpirationDuration)
+	if err != nil {
+		return nil, err
+	}
+	newRefreshToken, err := c.generateToken(admin.Username, admin.ID, newJTI, c.cfg.RefreshSecretKey, c.cfg.RefreshExpirationDuration)
 	if err != nil {
 		return nil, err
 	}
 
 	return &model.RefreshTokenResponse{
-		AccessToken: accessToken,
-		Username:    username,
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		Username:     admin.Username,
 	}, nil
 }

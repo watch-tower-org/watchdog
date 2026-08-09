@@ -20,6 +20,7 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 	db.RegisterModel((*model.Issue)(nil))
 	db.RegisterModel((*model.Event)(nil))
 	db.RegisterModel((*model.AlertLog)(nil))
+	db.RegisterModel((*model.AuthSession)(nil))
 
 	models := []interface{}{
 		(*model.Settings)(nil),
@@ -32,6 +33,7 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		(*model.Issue)(nil),
 		(*model.Event)(nil),
 		(*model.AlertLog)(nil),
+		(*model.AuthSession)(nil),
 	}
 
 	for _, i := range models {
@@ -61,6 +63,12 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		return err
 	}
 
+	// Index supporting dashboard trend range scans on server receive time.
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_events_created_at ON events (created_at)`); err != nil {
+		logger.Error().Msgf("failed to create events created_at index: %v", err)
+		return err
+	}
+
 	// Index supporting issue listing filtered by project/status.
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_issues_project_status ON issues (project, status)`); err != nil {
 		logger.Error().Msgf("failed to create issues project/status index: %v", err)
@@ -70,6 +78,12 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 	// Index supporting alert log lookups.
 	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_alert_log_issue_id ON alert_log (issue_id)`); err != nil {
 		logger.Error().Msgf("failed to create alert_log issue_id index: %v", err)
+		return err
+	}
+
+	// Index supporting refresh-session lookups and cleanup by admin.
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_auth_sessions_admin_id ON auth_sessions (admin_id)`); err != nil {
+		logger.Error().Msgf("failed to create auth_sessions admin_id index: %v", err)
 		return err
 	}
 

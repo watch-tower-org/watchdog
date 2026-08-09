@@ -31,6 +31,12 @@ type ServerConfig struct {
 	// serving over HTTPS (cookies are otherwise dropped by browsers over
 	// plain HTTP, breaking login).
 	CookieSecure bool
+	// TrustedProxies lists CIDRs whose X-Forwarded-For/X-Real-IP headers are
+	// trusted when resolving the client IP for rate limiting and logging. Empty
+	// (default) trusts no proxies, so ClientIP is the direct remote address and
+	// spoofed forwarding headers are ignored. Set e.g. 10.0.0.0/8 when running
+	// behind a reverse proxy.
+	TrustedProxies []string
 }
 
 type DatabaseConfig struct {
@@ -128,6 +134,7 @@ func LoadConfig() *Config {
 			Mode:         getEnv("GIN_MODE", "release"),
 			TimeZone:     getEnv("TZ", "UTC"),
 			CookieSecure: getEnv("COOKIE_SECURE", "false") == "true",
+			TrustedProxies: getEnvSlice("TRUSTED_PROXIES", nil),
 		},
 		Database: DatabaseConfig{
 			Host:            getEnv("DB_HOST", "localhost"),

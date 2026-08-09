@@ -14,4 +14,5 @@ func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig) {
 	grp.Use(middleware.AuthMiddleware(cfg))
 
 	grp.GET("/summary", h.Summary)
+	grp.GET("/trends", h.Trends)
 }

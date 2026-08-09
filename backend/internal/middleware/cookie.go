@@ -27,12 +27,6 @@ func SetAuthCookies(c *gin.Context, access, refresh string, accessMaxAge, refres
 	c.SetCookie(RefreshTokenCookie, refresh, refreshMaxAge, "/", "", secure, true)
 }
 
-// RefreshAccessCookie updates just the access token cookie after a refresh.
-func RefreshAccessCookie(c *gin.Context, access string, maxAge int, secure bool) {
-	sameSiteLax(c)
-	c.SetCookie(AccessTokenCookie, access, maxAge, "/", "", secure, true)
-}
-
 // ClearAuthCookies expires both session cookies (logout).
 func ClearAuthCookies(c *gin.Context) {
 	sameSiteLax(c)

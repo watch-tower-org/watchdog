@@ -25,6 +25,13 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 	gin.SetMode(app.Config.Server.Mode)
 	router := gin.New()
 
+	// Trust only explicitly configured proxy CIDRs so X-Forwarded-For can't be
+	// spoofed to reset rate limits or fake client IPs in logs. With no proxies
+	// configured, ClientIP is the direct remote address.
+	if err := router.SetTrustedProxies(app.Config.Server.TrustedProxies); err != nil {
+		return nil, err
+	}
+
 	router.RedirectTrailingSlash = false
 	router.RedirectFixedPath = false
 	router.RemoveExtraSlash = false
@@ -48,7 +55,7 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 		api_keys.Router(v1, app.ApiKeysC, &app.Config.JWT)
 		recipient_lists.Router(v1, app.RecipientListsC, &app.Config.JWT)
 		dashboard.Router(v1, app.DashboardC, &app.Config.JWT)
-		ingestion.Router(v1, app.IngestionC, app.DB)
+		ingestion.Router(v1, app.IngestionC, app.DB, &app.Config.RateLimit)
 		issues.Router(v1, app.IssuesC, &app.Config.JWT)
 		events.Router(v1, app.EventsC, &app.Config.JWT)
 		alert_rules.Router(v1, app.AlertRulesC, &app.Config.JWT)
