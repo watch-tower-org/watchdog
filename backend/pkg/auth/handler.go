@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/watch-tower-org/watchtower/backend/internal/config"
-	"github.com/watch-tower-org/watchtower/backend/internal/logger"
 	"github.com/watch-tower-org/watchtower/backend/internal/middleware"
 	"github.com/watch-tower-org/watchtower/backend/internal/model"
 	"github.com/watch-tower-org/watchtower/backend/internal/res"
@@ -50,7 +49,6 @@ func (h *Handler) Login(c *gin.Context) {
 	middleware.SetAuthCookies(
 		c,
 		u.AccessToken,
-		u.RefreshToken,
 		intSeconds(h.cfg.ExpirationDuration),
 		intSeconds(h.cfg.RefreshExpirationDuration),
 		h.cookieSecure,
@@ -59,52 +57,13 @@ func (h *Handler) Login(c *gin.Context) {
 	res.Ok(c, "User logged in successfully", u)
 }
 
-func (h *Handler) RefreshToken(c *gin.Context) {
-	// The refresh token comes from the httpOnly cookie, not the request body.
-	refreshToken, _ := c.Cookie(middleware.RefreshTokenCookie)
-	if refreshToken == "" {
-		res.Unauthorized(c, "Refresh token is required")
-		return
-	}
-
-	// Rotation happens server-side: the controller validates the session,
-	// revokes this token, and returns a fresh access + refresh pair.
-	u, err := h.controller.RefreshToken(c.Request.Context(), refreshToken)
-	if err != nil {
-		res.Unauthorized(c, "Invalid refresh token")
-		return
-	}
-
-	middleware.SetAuthCookies(
-		c,
-		u.AccessToken,
-		u.RefreshToken,
-		intSeconds(h.cfg.ExpirationDuration),
-		intSeconds(h.cfg.RefreshExpirationDuration),
-		h.cookieSecure,
-	)
-
-	res.Ok(c, "Token refreshed successfully", u)
-}
-
 func (h *Handler) Logout(c *gin.Context) {
 	if _, exists := c.Get("username"); !exists {
 		res.Unauthorized(c, "Unauthorized")
 		return
 	}
 
-	// Revoke the refresh session server-side so a stolen refresh cookie stops
-	// working even after the browser cookies are cleared. Best-effort: logout
-	// still succeeds if the session is already gone.
-	refreshToken, _ := c.Cookie(middleware.RefreshTokenCookie)
-	if refreshToken != "" {
-		if err := h.controller.RevokeSession(c.Request.Context(), refreshToken); err != nil {
-			logger.Ctx(c.Request.Context()).Warn().Msgf("logout: failed to revoke refresh session: %v", err)
-		}
-	}
-
 	middleware.ClearAuthCookies(c)
-
 	res.Ok(c, "User logged out successfully", nil)
 }
 

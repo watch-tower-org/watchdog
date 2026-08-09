@@ -18,26 +18,6 @@ export interface LoginPayload {
 
 let api: AxiosInstance
 
-// The server rotates the refresh token on every refresh call (the presented
-// token is revoked and replaced), so parallel 401s must not each fire their own
-// refresh: the first rotation would invalidate the token the others are about
-// to use. This promise single-flights refreshes — concurrent 401s await the one
-// in-flight call, then all retry against the fresh access token.
-let refreshPromise: Promise<void> | null = null
-
-function refreshSession(): Promise<void> {
-  if (!refreshPromise) {
-    // The refresh token travels in the httpOnly cookie automatically.
-    refreshPromise = axios
-      .post(`${BASE_URL}/auth/refresh-token`, {}, { withCredentials: true })
-      .then(() => undefined)
-      .finally(() => {
-        refreshPromise = null
-      })
-  }
-  return refreshPromise
-}
-
 function createApi(): AxiosInstance {
   const instance = axios.create({
     baseURL: BASE_URL,
@@ -53,8 +33,7 @@ function createApi(): AxiosInstance {
       }
 
       const isAuthCall =
-        original?.url?.includes('/auth/login') ||
-        original?.url?.includes('/auth/refresh-token')
+        original?.url?.includes('/auth/login')
 
       if (
         error.response?.status === 401 &&
@@ -64,10 +43,8 @@ function createApi(): AxiosInstance {
       ) {
         original._retry = true
         try {
-          await refreshSession()
           return instance(original)
         } catch {
-          refreshPromise = null
           window.location.href = '/login'
         }
       }

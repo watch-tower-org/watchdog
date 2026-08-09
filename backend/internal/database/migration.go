@@ -20,7 +20,6 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 	db.RegisterModel((*model.Issue)(nil))
 	db.RegisterModel((*model.Event)(nil))
 	db.RegisterModel((*model.AlertLog)(nil))
-	db.RegisterModel((*model.AuthSession)(nil))
 
 	models := []interface{}{
 		(*model.Settings)(nil),
@@ -33,7 +32,6 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		(*model.Issue)(nil),
 		(*model.Event)(nil),
 		(*model.AlertLog)(nil),
-		(*model.AuthSession)(nil),
 	}
 
 	for _, i := range models {

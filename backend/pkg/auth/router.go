@@ -12,7 +12,6 @@ func Router(r *gin.RouterGroup, controller *Controller, cfg *config.JWTConfig, c
 
 	grp := r.Group("/auth")
 	grp.POST("/login", h.Login)
-	grp.POST("/refresh-token", h.RefreshToken)
 	grp.POST("/logout", middleware.AuthMiddleware(cfg), h.Logout)
 	grp.GET("/me", middleware.AuthMiddleware(cfg), h.Me)
 }
