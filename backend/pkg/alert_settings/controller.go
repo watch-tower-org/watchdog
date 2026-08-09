@@ -7,19 +7,25 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/watch-tower-org/watchdog/backend/internal/cache"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
 )
 
 type Controller struct {
-	db *bun.DB
+	db    *bun.DB
+	cache *cache.SingletonCache[model.AlertSettings]
 }
 
-func NewController(db *bun.DB) *Controller {
-	return &Controller{db: db}
+func NewController(db *bun.DB, cache *cache.SingletonCache[model.AlertSettings]) *Controller {
+	return &Controller{db: db, cache: cache}
 }
 
 func (c *Controller) loadSettings(ctx context.Context) (*model.AlertSettings, error) {
+	if s, ok := c.cache.Get(); ok {
+		return s, nil
+	}
+
 	var s model.AlertSettings
 	err := c.db.NewSelect().
 		Model(&s).
@@ -31,6 +37,8 @@ func (c *Controller) loadSettings(ctx context.Context) (*model.AlertSettings, er
 		logger.Ctx(ctx).Error().Msgf("Error getting alert settings: %v", err)
 		return nil, errors.New("Failed to retrieve alert settings.")
 	}
+
+	c.cache.LoadAll(&s)
 
 	return &s, nil
 }
@@ -60,6 +68,8 @@ func (c *Controller) Update(ctx context.Context, req *model.UpdateAlertSettingsR
 		logger.Ctx(ctx).Error().Msgf("failed to update alert settings: %v", err)
 		return nil, errors.New("Failed to update alert settings.")
 	}
+
+	c.cache.Invalidate()
 
 	return s, nil
 }

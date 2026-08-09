@@ -7,6 +7,7 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/watch-tower-org/watchdog/backend/internal/cache"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 	"github.com/watch-tower-org/watchdog/backend/internal/mailer"
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
@@ -14,14 +15,19 @@ import (
 )
 
 type Controller struct {
-	db *bun.DB
+	db    *bun.DB
+	cache *cache.SingletonCache[model.EmailSettings]
 }
 
-func NewController(db *bun.DB) *Controller {
-	return &Controller{db: db}
+func NewController(db *bun.DB, cache *cache.SingletonCache[model.EmailSettings]) *Controller {
+	return &Controller{db: db, cache: cache}
 }
 
 func (c *Controller) loadSettings(ctx context.Context) (*model.EmailSettings, error) {
+	if s, ok := c.cache.Get(); ok {
+		return s, nil
+	}
+
 	var s model.EmailSettings
 	err := c.db.NewSelect().
 		Model(&s).
@@ -34,6 +40,8 @@ func (c *Controller) loadSettings(ctx context.Context) (*model.EmailSettings, er
 		return nil, errors.New("Failed to retrieve email settings.")
 	}
 
+	c.cache.LoadAll(&s)
+
 	return &s, nil
 }
 
@@ -42,8 +50,9 @@ func (c *Controller) Get(ctx context.Context) (*model.EmailSettings, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.SMTPPassword = ""
-	return s, nil
+	out := *s
+	out.SMTPPassword = ""
+	return &out, nil
 }
 
 func (c *Controller) Update(ctx context.Context, req *model.UpdateEmailSettingsRequest) (*model.EmailSettings, error) {
@@ -52,30 +61,32 @@ func (c *Controller) Update(ctx context.Context, req *model.UpdateEmailSettingsR
 		return nil, err
 	}
 
+	upd := *s
+
 	if req.SMTPHost != nil {
-		s.SMTPHost = *req.SMTPHost
+		upd.SMTPHost = *req.SMTPHost
 	}
 	if req.SMTPPort != nil {
-		s.SMTPPort = *req.SMTPPort
+		upd.SMTPPort = *req.SMTPPort
 	}
 	if req.SMTPUsername != nil {
-		s.SMTPUsername = *req.SMTPUsername
+		upd.SMTPUsername = *req.SMTPUsername
 	}
 	if req.SMTPPassword != nil && *req.SMTPPassword != "" {
-		s.SMTPPassword = *req.SMTPPassword
+		upd.SMTPPassword = *req.SMTPPassword
 	}
 	if req.SMTPFromEmail != nil {
-		s.SMTPFromEmail = *req.SMTPFromEmail
+		upd.SMTPFromEmail = *req.SMTPFromEmail
 	}
 	if req.SMTPFromName != nil {
-		s.SMTPFromName = *req.SMTPFromName
+		upd.SMTPFromName = *req.SMTPFromName
 	}
 
-	s.UpdatedAt = time.Now()
+	upd.UpdatedAt = time.Now()
 
 	_, err = c.db.NewUpdate().
-		Model(s).
-		Where("id = ?", s.ID).
+		Model(&upd).
+		Where("id = ?", upd.ID).
 		Exec(ctx)
 
 	if err != nil {
@@ -83,8 +94,10 @@ func (c *Controller) Update(ctx context.Context, req *model.UpdateEmailSettingsR
 		return nil, errors.New("Failed to update email settings.")
 	}
 
-	s.SMTPPassword = ""
-	return s, nil
+	c.cache.Invalidate()
+
+	upd.SMTPPassword = ""
+	return &upd, nil
 }
 
 func (c *Controller) TestSMTP(ctx context.Context, req *model.TestEmailRequest) error {

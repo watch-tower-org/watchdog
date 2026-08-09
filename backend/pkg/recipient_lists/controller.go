@@ -7,6 +7,7 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/watch-tower-org/watchdog/backend/internal/cache"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
 )
@@ -14,14 +15,19 @@ import (
 const defaultPageSize = 10
 
 type Controller struct {
-	db *bun.DB
+	db    *bun.DB
+	cache *cache.MapCache[int64, model.RecipientList]
 }
 
-func NewController(db *bun.DB) *Controller {
-	return &Controller{db: db}
+func NewController(db *bun.DB, cache *cache.MapCache[int64, model.RecipientList]) *Controller {
+	return &Controller{db: db, cache: cache}
 }
 
 func (c *Controller) GetByID(ctx context.Context, id int64) (*model.RecipientList, error) {
+	if rl, ok := c.cache.Get(id); ok {
+		return rl, nil
+	}
+
 	var rl model.RecipientList
 	err := c.db.NewSelect().
 		Model(&rl).
@@ -32,6 +38,8 @@ func (c *Controller) GetByID(ctx context.Context, id int64) (*model.RecipientLis
 		logger.Ctx(ctx).Error().Msgf("failed to retrieve recipient list id=%d: %v", id, err)
 		return nil, errors.New("Failed to retrieve recipient list.")
 	}
+
+	c.cache.Add(id, &rl)
 
 	return &rl, nil
 }
@@ -102,6 +110,8 @@ func (c *Controller) Create(ctx context.Context, req *model.CreateRecipientListR
 		return nil, errors.New("An unexpected error occurred. Please try again.")
 	}
 
+	c.cache.Invalidate()
+
 	return rl, nil
 }
 
@@ -130,6 +140,8 @@ func (c *Controller) Update(ctx context.Context, id int64, req *model.UpdateReci
 		return nil, errors.New("Failed to update recipient list.")
 	}
 
+	c.cache.Invalidate()
+
 	return rl, nil
 }
 
@@ -143,6 +155,8 @@ func (c *Controller) Delete(ctx context.Context, id int64) error {
 		logger.Ctx(ctx).Error().Msgf("failed to delete recipient list id=%d: %v", id, err)
 		return errors.New("Failed to delete recipient list.")
 	}
+
+	c.cache.Invalidate()
 
 	return nil
 }

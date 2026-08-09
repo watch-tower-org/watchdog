@@ -8,6 +8,7 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/watch-tower-org/watchdog/backend/internal/cache"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
 	"github.com/watch-tower-org/watchdog/backend/internal/model"
 )
@@ -15,11 +16,12 @@ import (
 const defaultPageSize = 10
 
 type Controller struct {
-	db *bun.DB
+	db    *bun.DB
+	cache *cache.MapCache[int64, model.AlertRule]
 }
 
-func NewController(db *bun.DB) *Controller {
-	return &Controller{db: db}
+func NewController(db *bun.DB, cache *cache.MapCache[int64, model.AlertRule]) *Controller {
+	return &Controller{db: db, cache: cache}
 }
 
 func (c *Controller) List(ctx context.Context, req *model.ListAlertRulesRequest) ([]model.AlertRule, *model.PageInfo, error) {
@@ -135,6 +137,8 @@ func (c *Controller) Create(ctx context.Context, req *model.CreateAlertRuleReque
 		return nil, errors.New("An unexpected error occurred. Please try again.")
 	}
 
+	c.cache.Invalidate()
+
 	return c.GetByID(ctx, rule.ID)
 }
 
@@ -190,6 +194,8 @@ func (c *Controller) Update(ctx context.Context, id int64, req *model.UpdateAler
 		return nil, errors.New("Failed to update alert rule.")
 	}
 
+	c.cache.Invalidate()
+
 	return c.GetByID(ctx, rule.ID)
 }
 
@@ -206,5 +212,7 @@ func (c *Controller) Delete(ctx context.Context, id int64) error {
 	if affected == 0 {
 		return errors.New("Alert rule not found.")
 	}
+
+	c.cache.Invalidate()
 	return nil
 }

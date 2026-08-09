@@ -7,7 +7,9 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/watch-tower-org/watchdog/backend/internal/cache"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
+	"github.com/watch-tower-org/watchdog/backend/internal/model"
 )
 
 const (
@@ -24,11 +26,22 @@ type job struct {
 	Tag           string
 }
 
+// Caches holds the shared in-memory caches used by the notification worker.
+// The same instances are owned by the settings/rules/recipient controllers,
+// which invalidate them on writes; the worker only reads from them.
+type Caches struct {
+	AlertSettings *cache.SingletonCache[model.AlertSettings]
+	EmailSettings *cache.SingletonCache[model.EmailSettings]
+	Rules         *cache.MapCache[int64, model.AlertRule]
+	Recipients    *cache.MapCache[int64, model.RecipientList]
+}
+
 // Notifier evaluates alert rules for ingested events and sends throttled
 // email notifications. Evaluation runs on a worker pool so ingestion is never
 // blocked by SMTP or rule evaluation.
 type Notifier struct {
 	db     *bun.DB
+	caches *Caches
 	jobs   chan job
 	stop   chan struct{}
 	ctx    context.Context
@@ -36,13 +49,14 @@ type Notifier struct {
 	wg     sync.WaitGroup
 }
 
-func NewNotifier(db *bun.DB, workers int) *Notifier {
+func NewNotifier(db *bun.DB, workers int, caches *Caches) *Notifier {
 	if workers < 1 {
 		workers = defaultWorkers
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Notifier{
 		db:     db,
+		caches: caches,
 		jobs:   make(chan job, defaultQueueSize),
 		stop:   make(chan struct{}),
 		ctx:    ctx,

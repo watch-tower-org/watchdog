@@ -60,12 +60,9 @@ func (n *Notifier) evaluate(ctx context.Context, j job) error {
 	}
 
 	var rules []model.AlertRule
-	err := n.db.NewSelect().
-		Model(&rules).
-		Where("is_active = true").
-		Scan(ctx)
+	rules, err := n.loadActiveRules(ctx)
 	if err != nil {
-		return fmt.Errorf("load rules: %w", err)
+		return err
 	}
 
 	alertSettings, err := n.loadAlertSettings(ctx)
@@ -120,7 +117,41 @@ func (n *Notifier) evaluate(ctx context.Context, j job) error {
 	return nil
 }
 
+func (n *Notifier) loadActiveRules(ctx context.Context) ([]model.AlertRule, error) {
+	if n.caches != nil && n.caches.Rules.IsLoaded() {
+		all := n.caches.Rules.GetAll()
+		rules := make([]model.AlertRule, 0, len(all))
+		for _, r := range all {
+			if r.IsActive {
+				rules = append(rules, *r)
+			}
+		}
+		return rules, nil
+	}
+
+	var rules []model.AlertRule
+	err := n.db.NewSelect().
+		Model(&rules).
+		Where("is_active = true").
+		Scan(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load rules: %w", err)
+	}
+
+	if n.caches != nil {
+		n.caches.Rules.LoadAll(rules, func(r *model.AlertRule) int64 { return r.ID })
+	}
+
+	return rules, nil
+}
+
 func (n *Notifier) loadAlertSettings(ctx context.Context) (*model.AlertSettings, error) {
+	if n.caches != nil {
+		if s, ok := n.caches.AlertSettings.Get(); ok {
+			return s, nil
+		}
+	}
+
 	var s model.AlertSettings
 	err := n.db.NewSelect().
 		Model(&s).
@@ -130,6 +161,11 @@ func (n *Notifier) loadAlertSettings(ctx context.Context) (*model.AlertSettings,
 	if err != nil {
 		return nil, fmt.Errorf("load alert settings: %w", err)
 	}
+
+	if n.caches != nil {
+		n.caches.AlertSettings.LoadAll(&s)
+	}
+
 	return &s, nil
 }
 
@@ -151,7 +187,13 @@ func (n *Notifier) lastSentAt(ctx context.Context, issueID, ruleID int64) (*time
 	return &log.SentAt, nil
 }
 
-func (n *Notifier) send(ctx context.Context, issue *model.Issue, rule *model.AlertRule, throttleMinutes int) error {
+func (n *Notifier) loadEmailSettings(ctx context.Context) (*model.EmailSettings, error) {
+	if n.caches != nil {
+		if s, ok := n.caches.EmailSettings.Get(); ok {
+			return s, nil
+		}
+	}
+
 	var email model.EmailSettings
 	err := n.db.NewSelect().
 		Model(&email).
@@ -159,18 +201,50 @@ func (n *Notifier) send(ctx context.Context, issue *model.Issue, rule *model.Ale
 		OrderBy("id", bun.OrderAsc).
 		Scan(ctx)
 	if err != nil {
-		return fmt.Errorf("load email settings: %w", err)
+		return nil, fmt.Errorf("load email settings: %w", err)
 	}
-	if email.SMTPHost == "" || email.SMTPFromEmail == "" {
-		return fmt.Errorf("smtp settings not configured")
+
+	if n.caches != nil {
+		n.caches.EmailSettings.LoadAll(&email)
+	}
+
+	return &email, nil
+}
+
+func (n *Notifier) loadRecipientList(ctx context.Context, id int64) (*model.RecipientList, error) {
+	if n.caches != nil {
+		if rl, ok := n.caches.Recipients.Get(id); ok {
+			return rl, nil
+		}
 	}
 
 	var list model.RecipientList
 	if err := n.db.NewSelect().
 		Model(&list).
-		Where("id = ?", rule.RecipientListID).
+		Where("id = ?", id).
 		Scan(ctx); err != nil {
-		return fmt.Errorf("load recipient list: %w", err)
+		return nil, fmt.Errorf("load recipient list: %w", err)
+	}
+
+	if n.caches != nil {
+		n.caches.Recipients.Add(id, &list)
+	}
+
+	return &list, nil
+}
+
+func (n *Notifier) send(ctx context.Context, issue *model.Issue, rule *model.AlertRule, throttleMinutes int) error {
+	email, err := n.loadEmailSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if email.SMTPHost == "" || email.SMTPFromEmail == "" {
+		return fmt.Errorf("smtp settings not configured")
+	}
+
+	list, err := n.loadRecipientList(ctx, rule.RecipientListID)
+	if err != nil {
+		return err
 	}
 	if len(list.Emails) == 0 {
 		return fmt.Errorf("recipient list %d has no emails", list.ID)

@@ -5,9 +5,11 @@ import (
 
 	"github.com/uptrace/bun"
 
+	"github.com/watch-tower-org/watchdog/backend/internal/cache"
 	"github.com/watch-tower-org/watchdog/backend/internal/config"
 	"github.com/watch-tower-org/watchdog/backend/internal/database"
 	"github.com/watch-tower-org/watchdog/backend/internal/logger"
+	"github.com/watch-tower-org/watchdog/backend/internal/model"
 	"github.com/watch-tower-org/watchdog/backend/internal/validator"
 	"github.com/watch-tower-org/watchdog/backend/pkg/alert_log"
 	"github.com/watch-tower-org/watchdog/backend/pkg/alert_rules"
@@ -63,18 +65,28 @@ func NewApplication(cfg *config.Config, db *database.Database) (*Application, er
 }
 
 func (app *Application) initControllers(db *database.Database) {
-	app.Notifier = notifier.NewNotifier(db.DB, 0)
+	alertSettingsCache := cache.NewSingleton[model.AlertSettings]()
+	emailSettingsCache := cache.NewSingleton[model.EmailSettings]()
+	alertRulesCache := cache.NewMap[int64, model.AlertRule]()
+	recipientListsCache := cache.NewMap[int64, model.RecipientList]()
+
+	app.Notifier = notifier.NewNotifier(db.DB, 0, &notifier.Caches{
+		AlertSettings: alertSettingsCache,
+		EmailSettings: emailSettingsCache,
+		Rules:         alertRulesCache,
+		Recipients:    recipientListsCache,
+	})
 	app.SettingsC = settings.NewController(db.DB)
-	app.EmailSettingsC = email_settings.NewController(db.DB)
-	app.AlertSettingsC = alert_settings.NewController(db.DB)
+	app.EmailSettingsC = email_settings.NewController(db.DB, emailSettingsCache)
+	app.AlertSettingsC = alert_settings.NewController(db.DB, alertSettingsCache)
 	app.ApiKeysC = api_keys.NewController(db.DB)
-	app.RecipientListsC = recipient_lists.NewController(db.DB)
+	app.RecipientListsC = recipient_lists.NewController(db.DB, recipientListsCache)
 	app.AuthC = auth.NewController(db.DB, &app.Config.JWT)
 	app.DashboardC = dashboard.NewController(db.DB)
 	app.IngestionC = ingestion.NewController(db.DB, app.Notifier)
 	app.IssuesC = issues.NewController(db.DB)
 	app.EventsC = events.NewController(db.DB)
-	app.AlertRulesC = alert_rules.NewController(db.DB)
+	app.AlertRulesC = alert_rules.NewController(db.DB, alertRulesCache)
 	app.AlertLogC = alert_log.NewController(db.DB)
 }
 
