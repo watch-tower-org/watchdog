@@ -20,6 +20,7 @@ type Config struct {
 	LoggerConfig LoggerConfig
 	SelfReport   SelfReportConfig
 	Notifier     NotifierConfig
+	Uptime       UptimeConfig
 	Ingestion    IngestionConfig
 }
 
@@ -82,6 +83,18 @@ type IngestionConfig struct {
 	// FingerprintMode selects the dedup key inputs: "type+frames" (default),
 	// "type", or "message". See ingestion.FingerprintMode.
 	FingerprintMode string
+}
+
+// UptimeConfig controls the uptime-monitoring dispatcher and check workers.
+type UptimeConfig struct {
+	// Workers is the number of concurrent check worker goroutines. 0 = default.
+	Workers int
+	// DispatchInterval is how often the dispatcher scans monitored_services
+	// for due checks. 0 = default.
+	DispatchInterval time.Duration
+	// DefaultTimeout is the fallback HTTP timeout when a service's
+	// timeout_seconds is unset. 0 = default.
+	DefaultTimeout time.Duration
 }
 
 type CORSConfig struct {
@@ -186,6 +199,11 @@ func LoadConfig() *Config {
 		},
 		Notifier: NotifierConfig{
 			Workers: getEnvInt("NOTIFIER_WORKERS", 5),
+		},
+		Uptime: UptimeConfig{
+			Workers:          getEnvInt("UPTIME_WORKERS", 2),
+			DispatchInterval: getEnvDuration("UPTIME_DISPATCH_INTERVAL", 5*time.Second),
+			DefaultTimeout:   getEnvDuration("UPTIME_DEFAULT_TIMEOUT", 10*time.Second),
 		},
 		Ingestion: IngestionConfig{
 			FingerprintMode: getEnv("FINGERPRINT_MODE", "type+frames"),

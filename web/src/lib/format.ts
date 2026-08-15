@@ -29,3 +29,25 @@ export function formatFull(ts: string, range: string): string {
   }
   return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 }
+
+/**
+ * Humanizes a check interval in seconds, e.g. 30 -> "30s", 300 -> "5m",
+ * 3600 -> "1h", 86400 -> "1d".
+ */
+export function formatInterval(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 60) {
+    return `${Math.max(seconds, 0)}s`
+  }
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return s ? `${m}m ${s}s` : `${m}m`
+  }
+  if (seconds < 86400) {
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    return m ? `${h}h ${m}m` : `${h}h`
+  }
+  const d = Math.floor(seconds / 86400)
+  return `${d}d`
+}

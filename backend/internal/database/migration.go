@@ -17,6 +17,8 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 	db.RegisterModel((*model.Admin)(nil))
 	db.RegisterModel((*model.RecipientList)(nil))
 	db.RegisterModel((*model.AlertRule)(nil))
+	db.RegisterModel((*model.MonitoredService)(nil))
+	db.RegisterModel((*model.UptimeCheck)(nil))
 	db.RegisterModel((*model.Issue)(nil))
 	db.RegisterModel((*model.Event)(nil))
 	db.RegisterModel((*model.AlertLog)(nil))
@@ -29,6 +31,8 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		(*model.Admin)(nil),
 		(*model.RecipientList)(nil),
 		(*model.AlertRule)(nil),
+		(*model.MonitoredService)(nil),
+		(*model.UptimeCheck)(nil),
 		(*model.Issue)(nil),
 		(*model.Event)(nil),
 		(*model.AlertLog)(nil),
@@ -79,9 +83,9 @@ func AutoMigration(db *bun.DB, ctx context.Context) error {
 		return err
 	}
 
-	// Index supporting refresh-session lookups and cleanup by admin.
-	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_auth_sessions_admin_id ON auth_sessions (admin_id)`); err != nil {
-		logger.Error().Msgf("failed to create auth_sessions admin_id index: %v", err)
+	// Index supporting uptime check history lookups.
+	if _, err := db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS idx_uptime_checks_service_id ON uptime_checks (service_id)`); err != nil {
+		logger.Error().Msgf("failed to create uptime_checks service_id index: %v", err)
 		return err
 	}
 

@@ -39,6 +39,9 @@ services:
       JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-watchtower-compose-refresh-secret-key}
       RATE_LIMIT_REQUESTS: "100"
       RATE_LIMIT_WINDOW: 1m
+      UPTIME_WORKERS: "2"
+      UPTIME_DISPATCH_INTERVAL: 5s
+      UPTIME_DEFAULT_TIMEOUT: 10s
       LOGGER_OUTPUT: both
       LOGGER_LEVEL: info
       LOGGER_LOG_DIR: /var/log/watchtower

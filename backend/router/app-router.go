@@ -17,6 +17,7 @@ import (
 	"github.com/watch-tower-org/watchtower/backend/pkg/issues"
 	"github.com/watch-tower-org/watchtower/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchtower/backend/pkg/settings"
+	"github.com/watch-tower-org/watchtower/backend/pkg/uptime"
 	"github.com/watch-tower-org/watchtower/backend/pkg/version"
 	"github.com/watch-tower-org/watchtower/backend/web"
 )
@@ -60,6 +61,7 @@ func AppRouter(app *pkg.Application) (*gin.Engine, error) {
 		events.Router(v1, app.EventsC, &app.Config.JWT)
 		alert_rules.Router(v1, app.AlertRulesC, &app.Config.JWT)
 		alert_log.Router(v1, app.AlertLogC, &app.Config.JWT)
+		uptime.Router(v1, app.UptimeC, &app.Config.JWT)
 		version.Router(v1, app.DB)
 	}
 

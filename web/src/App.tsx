@@ -15,6 +15,7 @@ import { IssueDetailPage } from '@/pages/IssueDetailPage'
 import { EventsPage } from '@/pages/EventsPage'
 import { AlertRulesPage } from '@/pages/AlertRulesPage'
 import { AlertsPage } from '@/pages/AlertsPage'
+import { ServicesPage } from '@/pages/ServicesPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
 
 // Dashboard pulls in recharts + framer-motion, so load it on demand.
@@ -63,6 +64,7 @@ export default function App() {
                   </Suspense>
                 }
               />
+              <Route path="/services" element={<ServicesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/recipient-lists" element={<RecipientListsPage />} />
               <Route path="/api-keys" element={<ApiKeysPage />} />

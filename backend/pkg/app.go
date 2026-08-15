@@ -25,6 +25,7 @@ import (
 	"github.com/watch-tower-org/watchtower/backend/pkg/recipient_lists"
 	"github.com/watch-tower-org/watchtower/backend/pkg/selfreport"
 	"github.com/watch-tower-org/watchtower/backend/pkg/settings"
+	"github.com/watch-tower-org/watchtower/backend/pkg/uptime"
 )
 
 type Application struct {
@@ -43,6 +44,7 @@ type Application struct {
 	EventsC         *events.Controller
 	AlertRulesC     *alert_rules.Controller
 	AlertLogC       *alert_log.Controller
+	UptimeC         *uptime.Controller
 	Notifier        *notifier.Notifier
 	SelfReport      *selfreport.Reporter
 }
@@ -60,6 +62,7 @@ func NewApplication(cfg *config.Config, db *database.Database) (*Application, er
 	}
 	app.initSelfReport()
 	app.Notifier.Start()
+	app.UptimeC.Start()
 
 	return app, nil
 }
@@ -88,6 +91,7 @@ func (app *Application) initControllers(db *database.Database) {
 	app.EventsC = events.NewController(db.DB)
 	app.AlertRulesC = alert_rules.NewController(db.DB, alertRulesCache)
 	app.AlertLogC = alert_log.NewController(db.DB)
+	app.UptimeC = uptime.NewController(db.DB, app.Config.Uptime)
 }
 
 func (app *Application) initDefaults() error {
@@ -129,5 +133,8 @@ func (app *Application) Shutdown() {
 	}
 	if app.Notifier != nil {
 		app.Notifier.Shutdown()
+	}
+	if app.UptimeC != nil {
+		app.UptimeC.Shutdown()
 	}
 }

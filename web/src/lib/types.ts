@@ -158,3 +158,50 @@ export interface DashboardTrends {
   top_projects: TrendItem[]
   top_tags: TrendItem[]
 }
+
+export type MonitoredServiceStatus = 'up' | 'down'
+
+export interface MonitoredService {
+  id: number
+  name: string
+  url: string
+  interval_seconds: number
+  timeout_seconds: number
+  failures_before_alert: number
+  recipient_list_id: number | null
+  recipient_list: RecipientList | null
+  is_active: boolean
+  last_status: MonitoredServiceStatus | null
+  last_checked_at: string | null
+  last_up_at: string | null
+  last_down_at: string | null
+  consecutive_failures: number
+  created_at: string
+  updated_at: string
+}
+
+export interface UptimeCheck {
+  id: number
+  service_id: number
+  checked_at: string
+  status: MonitoredServiceStatus
+  status_code: number | null
+  response_time_ms: number | null
+  error: string | null
+}
+
+export interface MonitoredServiceDetail extends MonitoredService {
+  recent_checks: UptimeCheck[]
+}
+
+export interface CheckResult {
+  status: MonitoredServiceStatus
+  status_code: number
+  response_time_ms: number
+  error: string | null
+}
+
+export interface CheckNowResponse {
+  service: MonitoredService
+  result: CheckResult
+}

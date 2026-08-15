@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
+  Activity,
   BellRing,
   Bug,
   History,
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/services', label: 'Services', icon: Activity },
   { to: '/issues', label: 'Issues', icon: Bug },
   { to: '/events', label: 'Events', icon: Radar },
   { to: '/alert-rules', label: 'Alert Rules', icon: BellRing },
