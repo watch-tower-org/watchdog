@@ -126,7 +126,14 @@ func (c *Controller) checkService(ctx context.Context, serviceID int64) error {
 	checkCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	result := runCheck(checkCtx, svc.URL, timeout)
+	result := runCheck(svc.URL, timeout)
+	if result.Status == model.ServiceStatusDown {
+		if result.Error != nil {
+			logger.Ctx(ctx).Warn().Msgf("uptime service %q (%s) DOWN: %s", svc.Name, svc.URL, *result.Error)
+		} else {
+			logger.Ctx(ctx).Warn().Msgf("uptime service %q (%s) DOWN: HTTP %d in %dms", svc.Name, svc.URL, result.StatusCode, result.ResponseTimeMs)
+		}
+	}
 	return c.applyResult(checkCtx, &svc, result)
 }
 

@@ -1,7 +1,6 @@
 package uptime
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"time"
@@ -26,7 +25,7 @@ type CheckNowResult struct {
 // runCheck performs a GET request against the service URL and determines
 // up/down. Any 2xx/3xx status is "up"; network errors, timeouts and 4xx/5xx
 // responses are "down".
-func runCheck(ctx context.Context, url string, timeout time.Duration) *CheckResult {
+func runCheck(url string, timeout time.Duration) *CheckResult {
 	client := &http.Client{Timeout: timeout}
 
 	start := time.Now()

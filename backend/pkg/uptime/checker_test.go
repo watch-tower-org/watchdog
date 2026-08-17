@@ -16,7 +16,7 @@ func TestRunCheck_Up(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result := runCheck(t.Context(), srv.URL, 5*time.Second)
+	result := runCheck(srv.URL, 5*time.Second)
 
 	if result.Status != model.ServiceStatusUp {
 		t.Fatalf("expected up, got %v", result.Status)
@@ -38,7 +38,7 @@ func TestRunCheck_Down_5xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result := runCheck(t.Context(), srv.URL, 5*time.Second)
+	result := runCheck(srv.URL, 5*time.Second)
 
 	if result.Status != model.ServiceStatusDown {
 		t.Fatalf("expected down, got %v", result.Status)
@@ -57,7 +57,7 @@ func TestRunCheck_Down_ConnectionError(t *testing.T) {
 	url := srv.URL
 	srv.Close()
 
-	result := runCheck(t.Context(), url, time.Second)
+	result := runCheck(url, time.Second)
 
 	if result.Status != model.ServiceStatusDown {
 		t.Fatalf("expected down, got %v", result.Status)
@@ -73,7 +73,7 @@ func TestRunCheck_Timeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result := runCheck(t.Context(), srv.URL, 100*time.Millisecond)
+	result := runCheck(srv.URL, 100*time.Millisecond)
 
 	if result.Status != model.ServiceStatusDown {
 		t.Fatalf("expected down on timeout, got %v", result.Status)
@@ -90,7 +90,7 @@ func TestRunCheck_RecordsLatency(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result := runCheck(t.Context(), srv.URL, 5*time.Second)
+	result := runCheck(srv.URL, 5*time.Second)
 
 	if result.Status != model.ServiceStatusUp {
 		t.Fatalf("expected up, got %v", result.Status)

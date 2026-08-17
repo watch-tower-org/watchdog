@@ -75,7 +75,7 @@ func (c *Controller) GetByID(ctx context.Context, id int64) (*model.MonitoredSer
 	err := c.db.NewSelect().
 		Model(&svc).
 		Relation("RecipientList").
-		Where("id = ?", id).
+		Where("ms.id = ?", id).
 		Scan(ctx)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -274,7 +274,7 @@ func (c *Controller) CheckNow(ctx context.Context, id int64) (*CheckNowResult, e
 	checkCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	result := runCheck(checkCtx, svc.URL, timeout)
+	result := runCheck(svc.URL, timeout)
 	if err := c.applyResult(checkCtx, svc, result, true); err != nil {
 		logger.Ctx(ctx).Error().Msgf("failed to record manual check for service id=%d: %v", id, err)
 		return nil, errors.New("An unexpected error occurred. Please try again.")
