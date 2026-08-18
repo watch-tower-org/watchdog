@@ -127,21 +127,23 @@ func (c *Controller) GetTrends(ctx context.Context, rangeKey string) (*Trends, e
 
 	trends.Buckets = buildSeries(start, spec.step, now, events, issues, alerts)
 
-	var statusCounts []TrendItem
+	// Slices are pre-allocated so they marshal as [] instead of null when the
+	// database is empty; the frontend expects arrays for these fields.
+	statusCounts := make([]TrendItem, 0)
 	if err := c.db.NewRaw(`SELECT status AS name, count(*) AS count FROM issues GROUP BY status ORDER BY count DESC`).Scan(ctx, &statusCounts); err != nil {
 		logger.Ctx(ctx).Error().Msgf("failed to load issues by status: %v", err)
 		return nil, errors.New("An unexpected error occurred. Please try again.")
 	}
 	trends.IssuesByStatus = statusCounts
 
-	var topProjects []TrendItem
+	topProjects := make([]TrendItem, 0)
 	if err := c.db.NewRaw(`SELECT project AS name, count(*) AS count FROM issues WHERE status = 'open' GROUP BY project ORDER BY count DESC LIMIT 5`).Scan(ctx, &topProjects); err != nil {
 		logger.Ctx(ctx).Error().Msgf("failed to load top projects: %v", err)
 		return nil, errors.New("An unexpected error occurred. Please try again.")
 	}
 	trends.TopProjects = topProjects
 
-	var topTags []TrendItem
+	topTags := make([]TrendItem, 0)
 	if err := c.db.NewRaw(`SELECT tag AS name, count(*) AS count FROM issues WHERE status = 'open' AND tag <> '' GROUP BY tag ORDER BY count DESC LIMIT 5`).Scan(ctx, &topTags); err != nil {
 		logger.Ctx(ctx).Error().Msgf("failed to load top tags: %v", err)
 		return nil, errors.New("An unexpected error occurred. Please try again.")

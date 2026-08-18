@@ -176,7 +176,7 @@ export function DashboardPage() {
           }
         >
           {trends ? (
-            <AreaTrendChart data={trends.buckets} range={range} />
+            <AreaTrendChart data={trends.buckets ?? []} range={range} />
           ) : (
             <div className="h-72 w-full animate-pulse rounded-lg bg-muted/50" />
           )}
@@ -189,7 +189,7 @@ export function DashboardPage() {
           delay={0.2}
         >
           {trends ? (
-            <StatusDonutChart data={trends.issues_by_status} />
+            <StatusDonutChart data={trends.issues_by_status ?? []} />
           ) : (
             <div className="h-72 w-full animate-pulse rounded-lg bg-muted/50" />
           )}
@@ -204,7 +204,7 @@ export function DashboardPage() {
           delay={0.25}
         >
           {trends ? (
-            <TopBarChart data={trends.top_projects} color="var(--chart-1)" emptyMessage="No projects yet" />
+            <TopBarChart data={trends.top_projects ?? []} color="var(--chart-1)" emptyMessage="No projects yet" />
           ) : (
             <div className="h-48 w-full animate-pulse rounded-lg bg-muted/50" />
           )}
@@ -217,7 +217,7 @@ export function DashboardPage() {
           delay={0.3}
         >
           {trends ? (
-            <TopBarChart data={trends.top_tags} color="var(--chart-2)" emptyMessage="No tags yet" />
+            <TopBarChart data={trends.top_tags ?? []} color="var(--chart-2)" emptyMessage="No tags yet" />
           ) : (
             <div className="h-48 w-full animate-pulse rounded-lg bg-muted/50" />
           )}

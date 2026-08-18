@@ -139,11 +139,9 @@ func LoadConfig() *Config {
 		fmt.Print("Attempting to read configuration from system environment variables\n")
 	}
 
-	serverPort := getEnv("SERVER_PORT", "8080")
-
 	config := &Config{
 		Server: ServerConfig{
-			Port:         serverPort,
+			Port:         getEnv("SERVER_PORT", "8080"),
 			Mode:         getEnv("GIN_MODE", "release"),
 			TimeZone:     getEnv("TZ", "UTC"),
 			CookieSecure: getEnv("COOKIE_SECURE", "false") == "true",
